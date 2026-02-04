@@ -2,28 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getModules, Module } from "@/lib/firestore";
+import { useModules } from "@/lib/hooks/useModules";
 import { useAuth } from "@/lib/auth";
 import { Play, Check, Lock, BookOpen, Clock } from "lucide-react";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [modules, setModules] = useState<Module[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchModules() {
-      try {
-        const data = await getModules();
-        setModules(data.filter(m => m.status === "published"));
-      } catch (error) {
-        console.error("Failed to fetch modules:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchModules();
-  }, []);
+  const { modules, isLoading: loading } = useModules();
 
   // Demo: first 3 modules completed
   const getStatus = (index: number) => {

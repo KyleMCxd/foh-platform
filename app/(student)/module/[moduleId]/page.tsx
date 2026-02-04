@@ -3,13 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useModules } from "@/lib/hooks/useModules";
+import { useLessons } from "@/lib/hooks/useLessons";
+import { useUserData } from "@/lib/hooks/useUserData";
 import {
-    getModule,
-    getLessonsForModule,
-    getSubmissionsForModule,
     createSubmission,
-    Module,
-    Lesson,
+    getSubmissionsForModule,
     Submission,
 } from "@/lib/firestore";
 import { uploadHomework } from "@/lib/storage";
@@ -31,35 +30,38 @@ export default function ModulePage() {
     const { user } = useAuth();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const [module, setModule] = useState<Module | null>(null);
-    const [lessons, setLessons] = useState<Lesson[]>([]);
+    // SWR hooks for parallel, cached fetching
+    const { modules, isLoading: modulesLoading } = useModules();
+    const { lessons, isLoading: lessonsLoading } = useLessons(moduleId);
+    const { progress, isLoading: userLoading } = useUserData(user?.uid);
+
+    // Submissions still local for now as it's more specific
     const [submissions, setSubmissions] = useState<Submission[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [subsLoading, setSubsLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [uploadSuccess, setUploadSuccess] = useState(false);
 
+    const module = modules.find(m => m.id === moduleId);
+    const loading = modulesLoading || lessonsLoading || userLoading || subsLoading;
+
     useEffect(() => {
-        async function fetchData() {
+        async function fetchSubmissions() {
+            if (!user || !moduleId) {
+                setSubsLoading(false);
+                return;
+            }
             try {
-                const [moduleData, lessonsData, submissionsData] = await Promise.all([
-                    getModule(moduleId),
-                    getLessonsForModule(moduleId),
-                    getSubmissionsForModule(moduleId),
-                ]);
-                setModule(moduleData);
-                setLessons(lessonsData);
+                const submissionsData = await getSubmissionsForModule(moduleId);
                 // Filter to show only current user's submissions
-                const mySubmissions = user
-                    ? submissionsData.filter((s) => s.userId === user.uid)
-                    : [];
+                const mySubmissions = submissionsData.filter((s) => s.userId === user.uid);
                 setSubmissions(mySubmissions);
             } catch (error) {
-                console.error("Failed to fetch module:", error);
+                console.error("Failed to fetch submissions:", error);
             } finally {
-                setLoading(false);
+                setSubsLoading(false);
             }
         }
-        fetchData();
+        fetchSubmissions();
     }, [moduleId, user]);
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import { getLesson, getModule, markLessonComplete, Lesson, Module } from "@/lib/firestore";
+import { useModules } from "@/lib/hooks/useModules";
+import { useUserData } from "@/lib/hooks/useUserData";
+import { markLessonComplete, Lesson, Module, getLesson } from "@/lib/firestore";
 import { useAuth } from "@/lib/auth";
 import { ArrowLeft, Check, FileText, Download, ExternalLink } from "lucide-react";
 
@@ -13,28 +12,38 @@ export default function WatchPage() {
     const { user } = useAuth();
 
     const [lesson, setLesson] = useState<Lesson | null>(null);
-    const [module, setModule] = useState<Module | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [lessonLoading, setLessonLoading] = useState(true);
     const [marking, setMarking] = useState(false);
     const [completed, setCompleted] = useState(false);
 
+    // Fetch lesson details (Still a hit, but we can cache it)
     useEffect(() => {
-        async function fetchData() {
+        async function fetchLessonData() {
             try {
-                const lessonData = await getLesson(lessonId);
-                if (lessonData) {
-                    setLesson(lessonData);
-                    const moduleData = await getModule(lessonData.moduleId);
-                    setModule(moduleData);
-                }
-            } catch (error) {
-                console.error("Failed to fetch lesson:", error);
+                const data = await getLesson(lessonId);
+                setLesson(data);
+            } catch (err) {
+                console.error("Fetch lesson error:", err);
             } finally {
-                setLoading(false);
+                setLessonLoading(false);
             }
         }
-        fetchData();
+        fetchLessonData();
     }, [lessonId]);
+
+    // Use shared hooks for module and user data
+    const { modules, isLoading: modulesLoading } = useModules();
+    const { progress, isLoading: userLoading } = useUserData(user?.uid);
+
+    const module = lesson ? modules.find(m => m.id === lesson.moduleId) : null;
+    const loading = lessonLoading || modulesLoading || userLoading;
+
+    // Local completion state from progress
+    useEffect(() => {
+        if (lesson && progress[lesson.id]) {
+            setCompleted(true);
+        }
+    }, [lesson, progress]);
 
     const handleMarkComplete = async () => {
         if (!user || !lesson) return;

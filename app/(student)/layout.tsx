@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { getModules, getUserData, Module } from "@/lib/firestore";
+import { useModules } from "@/lib/hooks/useModules";
+import { useUserData } from "@/lib/hooks/useUserData";
 import { useAuth } from "@/lib/auth";
 import {
     BookOpen,
@@ -32,29 +33,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 function DashboardLayoutContent({ children }: DashboardLayoutProps) {
     const { user, logout } = useAuth();
     const pathname = usePathname();
-    const [modules, setModules] = useState<Module[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [progress, setProgress] = useState<Record<string, boolean>>({});
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                const modulesData = await getModules();
-                setModules(modulesData.filter(m => m.status === "published"));
+    // SWR hooks - data is cached and shared across components
+    const { modules, isLoading: modulesLoading } = useModules();
+    const { progress, isLoading: userLoading } = useUserData(user?.uid);
 
-                if (user) {
-                    const userData = await getUserData(user.uid);
-                    setProgress(userData?.progress || {});
-                }
-            } catch (error) {
-                console.error("Failed to fetch data:", error);
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchData();
-    }, [user]);
+    const loading = modulesLoading || userLoading;
 
     // Close mobile menu on route change
     useEffect(() => {
