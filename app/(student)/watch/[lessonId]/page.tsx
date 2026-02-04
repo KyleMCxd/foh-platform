@@ -1,5 +1,8 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useModules } from "@/lib/hooks/useModules";
 import { useUserData } from "@/lib/hooks/useUserData";
 import { markLessonComplete, Lesson, Module, getLesson } from "@/lib/firestore";
