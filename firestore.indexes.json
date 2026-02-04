@@ -1,0 +1,47 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "lessons",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "weekId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "order",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "submissions",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "weekId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "submittedAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "submissions",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "userId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "submittedAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": []
+}
