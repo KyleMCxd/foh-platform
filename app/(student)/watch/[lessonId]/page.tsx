@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useModules } from "@/lib/hooks/useModules";
-import { useWeeks } from "@/lib/hooks/useWeeks";
 import { useLessons } from "@/lib/hooks/useLessons";
 import { useUserData } from "@/lib/hooks/useUserData";
 import { useAuth } from "@/lib/auth";
@@ -27,7 +26,6 @@ import {
     FileText,
     Upload,
     ChevronLeft,
-    MessageSquare,
     Download,
     Lock,
     List,
@@ -38,8 +36,12 @@ import {
     Save,
     AlignJustify,
     X,
-    AlertCircle
+    AlertCircle,
+    Menu,
+    ChevronRight,
+    Search
 } from "lucide-react";
+import SidebarContent from "@/components/layout/SidebarContent";
 
 // Types
 type Tab = "INFO" | "HANDOUT" | "HOMEWORK" | "NOTES";
@@ -67,8 +69,8 @@ export default function WatchPage() {
     const [marking, setMarking] = useState(false);
 
     // UX State
-    const [playlistOpen, setPlaylistOpen] = useState(true);
     const [showUnmarkConfirm, setShowUnmarkConfirm] = useState(false);
+    const [drawerOpen, setDrawerOpen] = useState(false);
 
     // Notes State
     const [notes, setNotes] = useState("");
@@ -90,6 +92,12 @@ export default function WatchPage() {
     const module = lesson ? modules.find(m => m.id === lesson.moduleId) : null;
     const moduleLessons = lesson ? allLessons.filter(l => l.moduleId === lesson.moduleId).sort((a, b) => a.order - b.order) : [];
     const progress = userData?.progress || {};
+
+    // Determine Next Lesson
+    const currentLessonIndex = moduleLessons.findIndex(l => l.id === lessonId);
+    const nextLesson = currentLessonIndex !== -1 && currentLessonIndex < moduleLessons.length - 1
+        ? moduleLessons[currentLessonIndex + 1]
+        : null;
 
     // Fetch Lesson Data
     useEffect(() => {
@@ -277,21 +285,21 @@ export default function WatchPage() {
         }
     };
 
-    if (!lesson) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+    if (!lesson) return <div className="h-screen flex items-center justify-center bg-black"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="min-h-screen bg-black text-white flex flex-col-reverse lg:flex-row overflow-hidden relative">
+        <div className="h-screen w-full bg-black flex overflow-hidden relative">
 
             {/* UNMARK CONFIRMATION DIALOG */}
             {showUnmarkConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-zinc-900 border border-zinc-700 p-6 rounded-2xl shadow-2xl max-w-sm w-full mx-4 animate-in zoom-in-95 duration-200">
                         <div className="flex items-center gap-4 mb-4">
                             <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
                                 <AlertCircle className="w-6 h-6" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-lg">Les Onvoltooien?</h3>
+                                <h3 className="font-bold text-lg text-white">Les Onvoltooien?</h3>
                                 <p className="text-zinc-400 text-sm">Weet je zeker dat je de les wilt onvoltooien?</p>
                             </div>
                         </div>
@@ -313,295 +321,236 @@ export default function WatchPage() {
                 </div>
             )}
 
-            {/* LEFT SIDEBAR - PLAYLIST (COLLAPSIBLE) */}
-            <aside
-                className={`bg-zinc-900 border-r border-zinc-800 flex flex-col h-auto min-h-[300px] lg:h-screen overflow-hidden shrink-0 transition-all duration-300 ease-in-out ${playlistOpen ? "w-full lg:w-80" : "w-0 lg:w-0 border-none"
-                    }`}
-            >
-                <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-                    <div>
-                        <Link href="/curriculum" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-4 text-sm">
-                            <ChevronLeft className="w-4 h-4" /> Back to Curriculum
-                        </Link>
-                        <h2 className="font-bold text-lg text-white mb-1 line-clamp-1 truncate w-48">{module?.title}</h2>
-                        <p className="text-xs text-zinc-500">{moduleLessons.length} lessons</p>
+            {/* NAVIGATION DRAWER */}
+            {drawerOpen && (
+                <>
+                    <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setDrawerOpen(false)} />
+                    <div className="fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl animate-in slide-in-from-left duration-300">
+                        <SidebarContent />
                     </div>
-                    {/* Close button for sidebar */}
-                    <button
-                        onClick={() => setPlaylistOpen(false)}
-                        className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white lg:hidden"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar h-[300px] lg:h-auto whitespace-nowrap">
-                    {moduleLessons.map((l) => {
-                        const isCurrent = l.id === lesson.id;
-                        const isDone = progress[l.id];
-                        return (
-                            <Link
-                                key={l.id}
-                                href={`/watch/${l.id}`}
-                                className={`flex items-start gap-3 p-4 border-b border-zinc-800/50 hover:bg-zinc-800 transition-colors ${isCurrent ? "bg-zinc-800/80 border-l-2 border-l-primary" : ""}`}
-                            >
-                                <div className="mt-0.5">
-                                    {isCurrent ? (
-                                        <Play className="w-4 h-4 text-primary fill-primary" />
-                                    ) : isDone ? (
-                                        <CheckCircle className="w-4 h-4 text-green-500" />
-                                    ) : (
-                                        <div className="w-4 h-4 rounded-full border border-zinc-600" />
-                                    )}
-                                </div>
-                                <div className="overflow-hidden">
-                                    <h4 className={`text-sm font-medium truncate ${isCurrent ? "text-white" : "text-zinc-400"}`}>{l.title}</h4>
-                                    <span className="text-xs text-zinc-600">{l.duration}</span>
-                                </div>
-                            </Link>
-                        );
-                    })}
-                </div>
-            </aside>
-
-            {/* TOGGLE SIDEBAR BUTTON (When playlist is closed) */}
-            {!playlistOpen && (
-                <button
-                    onClick={() => setPlaylistOpen(true)}
-                    className="absolute top-4 left-4 z-20 p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white hover:border-primary/50 transition-colors shadow-lg"
-                    title="Open Playlist"
-                >
-                    <AlignJustify className="w-5 h-5" />
-                </button>
+                </>
             )}
 
-            {/* MAIN CONTENT */}
-            <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-zinc-950">
+            {/* HEADER (Minimal) */}
+            <div className="fixed top-0 left-0 right-0 h-16 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between px-4 z-30">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setDrawerOpen(true)}
+                        className="p-2 hover:bg-zinc-900 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                    >
+                        <Menu className="w-6 h-6" />
+                    </button>
+                    <div>
+                        <h1 className="text-sm font-bold text-zinc-500 uppercase tracking-wider">{module?.title}</h1>
+                        <h2 className="text-white font-medium text-lg truncate max-w-[300px] md:max-w-md">{lesson.title}</h2>
+                    </div>
+                </div>
 
-                {/* VIDEO PLAYER */}
-                <div className="w-full aspect-video bg-black relative shrink-0 group">
-                    {/* Mobile Sidebar Toggle Overlay Button if closed */}
-                    {!playlistOpen && (
-                        <button
-                            onClick={() => setPlaylistOpen(true)}
-                            className="absolute top-4 left-4 z-20 p-2 bg-black/50 backdrop-blur hover:bg-black/80 rounded-lg text-white transition-colors lg:hidden"
+                <div className="flex items-center gap-4">
+                    {/* Mark Complete Button (Header Version) */}
+                    <button
+                        onClick={handleMarkComplete}
+                        disabled={marking || (!completed && !videoWatched)}
+                        className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${completed
+                            ? "bg-green-500/10 text-green-500 border border-green-500/20"
+                            : !videoWatched
+                                ? "bg-zinc-800 text-zinc-600"
+                                : "bg-primary text-black hover:bg-primary/90"
+                            }`}
+                    >
+                        {completed ? <Check className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                        {completed ? "Voltooid" : "Voltooien"}
+                    </button>
+
+                    {/* Next Lesson Button */}
+                    {nextLesson && (
+                        <Link
+                            href={`/watch/${nextLesson.id}`}
+                            className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
                         >
-                            <AlignJustify className="w-5 h-5" />
-                        </button>
+                            <span className="hidden md:inline text-sm">Next</span>
+                            <div className="p-2 bg-zinc-900 rounded-lg border border-zinc-800 hover:border-zinc-700">
+                                <ChevronRight className="w-4 h-4" />
+                            </div>
+                        </Link>
                     )}
+                </div>
+            </div>
 
+            {/* MAIN CONTENT SPLIT */}
+            <div className="flex-1 flex flex-col md:flex-row mt-16 w-full overflow-hidden">
+
+                {/* VIDEO AREA (Left / Top) */}
+                <div className="w-full md:w-[65%] lg:w-[70%] bg-black flex items-center justify-center relative border-r border-zinc-900">
                     {lesson.vimeoId ? (
                         <iframe
                             ref={iframeRef}
                             src={`https://player.vimeo.com/video/${lesson.vimeoId}?color=00F0FF&title=0&byline=0&portrait=0`}
-                            className="absolute inset-0 w-full h-full"
+                            className="w-full aspect-video md:h-full md:w-full"
                             allow="autoplay; fullscreen; picture-in-picture"
                             allowFullScreen
                         />
                     ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-zinc-600">
-                            Video unavailable
+                        <div className="text-zinc-600 flex flex-col items-center">
+                            <Play className="w-12 h-12 mb-4 opacity-20" />
+                            <p>Video unavailable</p>
                         </div>
                     )}
                 </div>
 
-                {/* TABS NAVIGATION */}
-                <div className="flex items-center border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10 overflow-x-auto no-scrollbar pl-16 lg:pl-0">
-                    {/* Desktop Toggle Button */}
-                    {!playlistOpen && (
-                        <button
-                            onClick={() => setPlaylistOpen(true)}
-                            className="hidden lg:flex items-center justify-center w-14 h-full border-r border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                        >
-                            <AlignJustify className="w-5 h-5" />
-                        </button>
-                    )}
+                {/* WORKSPACE AREA (Right / Bottom) */}
+                <div className="w-full md:w-[35%] lg:w-[30%] bg-zinc-950 flex flex-col h-[50vh] md:h-full border-l border-zinc-900">
 
-                    {[
-                        { id: "INFO", label: "Overview", icon: FileText },
-                        { id: "HANDOUT", label: "Handout", icon: Download },
-                        { id: "HOMEWORK", label: "Huiswerk", icon: Upload },
-                        { id: "NOTES", label: "Notities", icon: BookOpen },
-                    ].map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as Tab)}
-                            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id
-                                ? "border-primary text-primary bg-zinc-800/50"
-                                : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-800"
-                                }`}
-                        >
-                            <tab.icon className="w-4 h-4" />
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
+                    {/* TABS */}
+                    <div className="flex items-center border-b border-zinc-900 bg-zinc-950">
+                        {[
+                            { id: "INFO", label: "Info", icon: FileText },
+                            { id: "HANDOUT", label: "Handout", icon: Download },
+                            { id: "NOTES", label: "Notities", icon: BookOpen },
+                            { id: "HOMEWORK", label: "Huiswerk", icon: Upload },
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as Tab)}
+                                className={`flex-1 flex flex-col items-center justify-center gap-1 py-4 text-[10px] font-bold uppercase tracking-wider transition-colors border-b-2 ${activeTab === tab.id
+                                    ? "border-primary text-primary bg-zinc-900"
+                                    : "border-transparent text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900"
+                                    }`}
+                            >
+                                <tab.icon className="w-5 h-5 mb-1" />
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
 
-                {/* TAB CONTENT */}
-                <div className="flex-1 p-6 lg:p-10 max-w-4xl mx-auto w-full">
+                    {/* CONTENT AREA */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
 
-                    {/* INFO TAB */}
-                    {activeTab === "INFO" && (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div>
-                                <h1 className="text-3xl font-bold text-white mb-2">
-                                    <span className="text-primary mr-3">{lesson.number}</span>
-                                    {lesson.title}
-                                </h1>
-                                <p className="text-zinc-400 leading-relaxed text-lg">
-                                    {module?.description}
-                                </p>
-                            </div>
-
-                            <div className="flex items-center gap-4">
+                        {activeTab === "INFO" && (
+                            <div className="space-y-6 animate-in fade-in duration-300">
+                                <div>
+                                    <h2 className="text-xl font-bold text-white mb-2">{lesson.title}</h2>
+                                    <p className="text-zinc-400 text-sm leading-relaxed">{module?.description || "No description available."}</p>
+                                </div>
+                                <div className="p-4 bg-zinc-900/50 rounded-xl border border-zinc-900">
+                                    <div className="flex justify-between text-sm mb-2">
+                                        <span className="text-zinc-500">Video Progress</span>
+                                        <span className="text-primary font-mono">{Math.round(videoProgress)}%</span>
+                                    </div>
+                                    <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                        <div className="h-full bg-brand-gradient transition-all duration-300" style={{ width: `${videoProgress}%` }} />
+                                    </div>
+                                </div>
+                                {/* Mobile Mark Complete Button (Visible only on small screens) */}
                                 <button
                                     onClick={handleMarkComplete}
                                     disabled={marking || (!completed && !videoWatched)}
-                                    // Enabled if completed (to unmark) OR if videoWatched (to mark)
-                                    className={`flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-lg transition-all transform active:scale-95 ${completed ? "bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20"
-                                        : !videoWatched ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                                            : "bg-brand-gradient text-white shadow-lg shadow-primary/20 hover:opacity-90"
+                                    className={`w-full md:hidden flex items-center justify-center gap-2 px-4 py-4 rounded-xl font-bold text-sm transition-all ${completed
+                                        ? "bg-green-500/10 text-green-500 border border-green-500/20"
+                                        : !videoWatched
+                                            ? "bg-zinc-800 text-zinc-600"
+                                            : "bg-primary text-black hover:bg-primary/90"
                                         }`}
                                 >
-                                    {completed ? <Check className="w-6 h-6" /> : !videoWatched ? <Lock className="w-5 h-5" /> : <CheckCircle className="w-6 h-6" />}
-                                    {completed ? "Les Voltooid" : "Markeer als Voltooid"}
+                                    {completed ? <Check className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                                    {completed ? "Voltooid" : "Markeer als Voltooid"}
                                 </button>
+                            </div>
+                        )}
 
-                                {!videoWatched && !completed && (
-                                    <span className="text-sm text-zinc-500">
-                                        Watch video to unlock ({Math.round(videoProgress)}%)
-                                    </span>
+                        {activeTab === "HANDOUT" && (
+                            <div className="h-full flex flex-col animate-in fade-in duration-300">
+                                {lesson.handoutPdfUrl ? (
+                                    <iframe src={`${lesson.handoutPdfUrl}#toolbar=0`} className="w-full h-full rounded-xl border border-zinc-800 bg-white" />
+                                ) : (
+                                    <div className="flex-1 flex flex-col items-center justify-center text-zinc-600">
+                                        <FileText className="w-10 h-10 mb-3 opacity-20" />
+                                        <p className="text-sm">No handout available.</p>
+                                    </div>
                                 )}
                             </div>
+                        )}
 
-                            {/* Resources ... */}
-                            {lesson.resources && lesson.resources.length > 0 && (
-                                <div className="pt-8 border-t border-zinc-800">
-                                    <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-4">Resources</h3>
-                                    <div className="flex flex-wrap gap-4">
-                                        {lesson.resources.map((r, i) => (
-                                            <a key={i} href={r.url} target="_blank" className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-primary/50 hover:text-primary transition-colors">
-                                                <Download className="w-4 h-4" />
-                                                {r.name}
-                                            </a>
-                                        ))}
+                        {activeTab === "NOTES" && (
+                            <div className="h-full flex flex-col animate-in fade-in duration-300">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-white font-bold text-sm">My Notes</h3>
+                                    <button
+                                        onClick={handleSaveNotes}
+                                        disabled={notesSaving}
+                                        className="text-primary text-xs font-bold hover:underline disabled:opacity-50"
+                                    >
+                                        {notesSaving ? "Saving..." : "Save"}
+                                    </button>
+                                </div>
+                                <textarea
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    className="flex-1 w-full p-4 bg-zinc-900 rounded-xl border border-zinc-800 focus:border-primary focus:outline-none text-zinc-300 leading-relaxed resize-none text-sm font-serif"
+                                    placeholder="Type notes here..."
+                                />
+                                <div className="mt-2 text-[10px] text-zinc-600 flex justify-between">
+                                    <span>Notes sync with Workbook</span>
+                                    {lastSaved && <span>Saved: {lastSaved.toLocaleTimeString()}</span>}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === "HOMEWORK" && (
+                            <div className="animate-in fade-in duration-300 space-y-6">
+                                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center">
+                                    <Upload className="w-8 h-8 text-primary mx-auto mb-3" />
+                                    <h3 className="text-white font-bold mb-1">Submit Homework</h3>
+                                    <p className="text-xs text-zinc-500 mb-4 max-w-[200px] mx-auto">Upload PDF for {module?.title}</p>
+
+                                    <label className={`block w-full py-3 border border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-zinc-800 transition-all ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+                                        <span className="text-xs font-bold text-zinc-400">
+                                            {uploading ? "Uploading..." : "Select PDF File"}
+                                        </span>
+                                        <input
+                                            type="file"
+                                            accept="application/pdf"
+                                            className="hidden"
+                                            onChange={handleFileUpload}
+                                            disabled={uploading}
+                                            ref={fileInputRef}
+                                        />
+                                    </label>
+                                    {uploadSuccess && <p className="text-green-500 text-xs mt-2 font-bold">Successfully uploaded!</p>}
+                                </div>
+
+                                <div>
+                                    <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">History</h4>
+                                    <div className="space-y-2">
+                                        {submissions.length === 0 ? (
+                                            <p className="text-zinc-600 text-xs italic text-center">No submissions yet.</p>
+                                        ) : (
+                                            submissions.map(sub => (
+                                                <div key={sub.id} className="bg-zinc-900 border border-zinc-800 p-3 rounded-lg flex items-center justify-between">
+                                                    <div className="flex items-center gap-3 overflow-hidden">
+                                                        <File className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                                                        <div className="min-w-0">
+                                                            <p className="text-zinc-300 text-xs truncate max-w-[120px]">{sub.fileName}</p>
+                                                            <p className="text-[10px] text-zinc-600">{new Date(sub.submittedAt).toLocaleDateString()}</p>
+                                                        </div>
+                                                    </div>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${sub.grade === "pass" ? "bg-green-500/10 text-green-500" :
+                                                            sub.grade === "fail" ? "bg-red-500/10 text-red-500" :
+                                                                "bg-orange-500/10 text-orange-500"
+                                                        }`}>
+                                                        {sub.grade === "pass" ? "PASS" : sub.grade === "fail" ? "FAIL" : "PENDING"}
+                                                    </span>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* HANDOUT TAB */}
-                    {activeTab === "HANDOUT" && (
-                        <div className="h-[600px] bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-                            {lesson.handoutPdfUrl ? (
-                                <iframe src={`${lesson.handoutPdfUrl}#toolbar=0`} className="w-full h-full border-0" />
-                            ) : (
-                                <div className="h-full flex flex-col items-center justify-center text-zinc-500">
-                                    <FileText className="w-12 h-12 mb-4 opacity-20" />
-                                    <p>No handout available for this lesson.</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* HOMEWORK TAB */}
-                    {activeTab === "HOMEWORK" && (
-                        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 mb-8">
-                                <h3 className="text-xl font-bold text-white mb-2">Submit Homework</h3>
-                                <p className="text-zinc-400 mb-6">Upload your work for: <span className="text-primary">{module?.title}</span></p>
-
-                                <label className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${uploading ? "border-zinc-700 bg-zinc-800/50" : "border-zinc-700 hover:border-primary/50 hover:bg-zinc-800"}`}>
-                                    {uploading ? (
-                                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                                    ) : (
-                                        <>
-                                            <Upload className="w-8 h-8 text-zinc-500 mb-2" />
-                                            <span className="text-sm font-medium text-zinc-300">Click to upload PDF</span>
-                                            <span className="text-xs text-zinc-500 mt-1">Max 10MB</span>
-                                        </>
-                                    )}
-                                    <input
-                                        type="file"
-                                        accept="application/pdf"
-                                        className="hidden"
-                                        onChange={handleFileUpload}
-                                        disabled={uploading}
-                                        ref={fileInputRef}
-                                    />
-                                </label>
-                                {uploadSuccess && <p className="text-green-500 text-sm mt-4 text-center font-medium">Upload successful!</p>}
                             </div>
+                        )}
 
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Your Submissions</h4>
-                                {submissions.length === 0 ? (
-                                    <p className="text-zinc-500 italic">No submissions yet.</p>
-                                ) : (
-                                    submissions.map(sub => (
-                                        <div key={sub.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center">
-                                                    <File className="w-5 h-5 text-zinc-400" />
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium text-white">{sub.fileName}</p>
-                                                    <p className="text-xs text-zinc-500">{new Date(sub.submittedAt).toLocaleDateString()}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${sub.grade === "pass" ? "bg-green-500/10 text-green-500" :
-                                                    sub.grade === "fail" ? "bg-red-500/10 text-red-500" :
-                                                        "bg-orange-500/10 text-orange-500"
-                                                    }`}>
-                                                    {sub.grade === "pass" ? "Passed" : sub.grade === "fail" ? "Failed" : "Pending"}
-                                                </span>
-                                                <a href={sub.fileUrl} target="_blank" className="p-2 bg-zinc-800 rounded-lg hover:text-primary transition-colors"><Download className="w-4 h-4" /></a>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* NOTES TAB */}
-                    {activeTab === "NOTES" && (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col items-start gap-4 h-[600px]">
-                            <div className="w-full flex items-center justify-between">
-                                <Link
-                                    href="/workbook"
-                                    target="_blank"
-                                    className="text-xl font-bold text-white hover:text-primary transition-colors flex items-center gap-2"
-                                >
-                                    My Notebook <BookOpen className="w-4 h-4" />
-                                </Link>
-                                <button
-                                    onClick={handleSaveNotes}
-                                    disabled={notesSaving}
-                                    className="flex items-center gap-2 px-4 py-2 bg-zinc-800 text-white rounded-lg hover:bg-primary hover:text-black font-medium transition-colors disabled:opacity-50"
-                                >
-                                    {notesSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                    {notesSaving ? "Savings..." : "Save Notes"}
-                                </button>
-                            </div>
-
-                            <p className="text-xs text-zinc-500">
-                                This is your global notebook. Notes taken here appear in "Mijn Werkboek".
-                                {lastSaved && ` Last saved: ${lastSaved.toLocaleTimeString()}`}
-                            </p>
-
-                            <textarea
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                className="flex-1 w-full p-6 resize-none bg-zinc-900 border border-zinc-800 rounded-2xl focus:outline-none focus:border-primary text-zinc-200 leading-relaxed placeholder:text-zinc-700 custom-scrollbar font-sans"
-                                placeholder="Type your notes here..."
-                            />
-                        </div>
-                    )}
-
+                    </div>
                 </div>
-            </main>
+            </div>
         </div>
     );
 }
