@@ -5,7 +5,7 @@
             "queryScope": "COLLECTION",
             "fields": [
                 {
-                    "fieldPath": "weekId",
+                    "fieldPath": "moduleId",
                     "order": "ASCENDING"
                 },
                 {
@@ -19,7 +19,7 @@
             "queryScope": "COLLECTION",
             "fields": [
                 {
-                    "fieldPath": "weekId",
+                    "fieldPath": "moduleId",
                     "order": "ASCENDING"
                 },
                 {

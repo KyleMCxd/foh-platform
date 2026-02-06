@@ -87,40 +87,86 @@ const modules = [
 ];
 
 const lessons = [
-    // Module 1
-    { moduleId: "module-1", title: "Introductie Bekabeling", number: "1.1", vimeoId: "76979871" }, // Placeholder ID
-    { moduleId: "module-1", title: "XLR vs Jack", number: "1.2", vimeoId: "76979871" },
-    { moduleId: "module-1", title: "Kabel Management", number: "1.3", vimeoId: "76979871" },
+    // Module 1: Bekabeling & Gear
+    { moduleId: "module-1", title: "Introductie Bekabeling", number: "1.1", vimeoId: "76979871", duration: "18 min" },
+    { moduleId: "module-1", title: "XLR vs Jack", number: "1.2", vimeoId: "76979871", duration: "22 min" },
+    { moduleId: "module-1", title: "Kabel Management", number: "1.3", vimeoId: "76979871", duration: "15 min" },
+    { moduleId: "module-1", title: "Speakon & Powercon", number: "1.4", vimeoId: "76979871", duration: "20 min" },
 
-    // Module 2
-    { moduleId: "module-2", title: "De Priklijst Lezen", number: "2.1", vimeoId: "76979871" },
-    { moduleId: "module-2", title: "Stageblock Patching", number: "2.2", vimeoId: "76979871" },
+    // Module 2: Priklijsten & Patching
+    { moduleId: "module-2", title: "De Priklijst Lezen", number: "2.1", vimeoId: "76979871", duration: "25 min" },
+    { moduleId: "module-2", title: "Stageblock Patching", number: "2.2", vimeoId: "76979871", duration: "30 min" },
+    { moduleId: "module-2", title: "Snake Beheer", number: "2.3", vimeoId: "76979871", duration: "18 min" },
 
-    // Module 3
-    { moduleId: "module-3", title: "Dynamisch vs Condensator", number: "3.1", vimeoId: "76979871" },
-    { moduleId: "module-3", title: "Drum Kit Micing", number: "3.2", vimeoId: "76979871" },
+    // Module 3: Microfoontechniek
+    { moduleId: "module-3", title: "Dynamisch vs Condensator", number: "3.1", vimeoId: "76979871", duration: "24 min" },
+    { moduleId: "module-3", title: "Drum Kit Micing", number: "3.2", vimeoId: "76979871", duration: "32 min" },
+    { moduleId: "module-3", title: "Vocals & Instruments", number: "3.3", vimeoId: "76979871", duration: "28 min" },
+    { moduleId: "module-3", title: "Phantom Power & DI", number: "3.4", vimeoId: "76979871", duration: "20 min" },
 
-    // Module 4
-    { moduleId: "module-4", title: "Line Check Protocol", number: "4.1", vimeoId: "76979871" },
-    { moduleId: "module-4", title: "Gain Staging", number: "4.2", vimeoId: "76979871" },
+    // Module 4: Line Check & Sound Check
+    { moduleId: "module-4", title: "Line Check Protocol", number: "4.1", vimeoId: "76979871", duration: "22 min" },
+    { moduleId: "module-4", title: "Gain Staging", number: "4.2", vimeoId: "76979871", duration: "26 min" },
+    { moduleId: "module-4", title: "Monitor Mix Basics", number: "4.3", vimeoId: "76979871", duration: "30 min" },
+    { moduleId: "module-4", title: "FOH Sound Check", number: "4.4", vimeoId: "76979871", duration: "35 min" },
+
+    // Module 5: Licht Console Basis
+    { moduleId: "module-5", title: "GrandMA3 Interface", number: "5.1", vimeoId: "76979871", duration: "28 min" },
+    { moduleId: "module-5", title: "Patching Fixtures", number: "5.2", vimeoId: "76979871", duration: "25 min" },
+    { moduleId: "module-5", title: "Groups & Presets", number: "5.3", vimeoId: "76979871", duration: "30 min" },
+    { moduleId: "module-5", title: "Command Line Basics", number: "5.4", vimeoId: "76979871", duration: "22 min" },
+
+    // Module 6: Fixtures & DMX
+    { moduleId: "module-6", title: "DMX Adressering", number: "6.1", vimeoId: "76979871", duration: "24 min" },
+    { moduleId: "module-6", title: "Moving Heads & LED Pars", number: "6.2", vimeoId: "76979871", duration: "28 min" },
+    { moduleId: "module-6", title: "Fixture Modes", number: "6.3", vimeoId: "76979871", duration: "20 min" },
+    { moduleId: "module-6", title: "DMX Universes", number: "6.4", vimeoId: "76979871", duration: "26 min" },
+
+    // Module 7: Programmeren & Cues
+    { moduleId: "module-7", title: "Cue Basis", number: "7.1", vimeoId: "76979871", duration: "30 min" },
+    { moduleId: "module-7", title: "Fade Times & Delays", number: "7.2", vimeoId: "76979871", duration: "25 min" },
+    { moduleId: "module-7", title: "Effects Engine", number: "7.3", vimeoId: "76979871", duration: "35 min" },
+    { moduleId: "module-7", title: "Sequence Builder", number: "7.4", vimeoId: "76979871", duration: "28 min" },
+
+    // Module 8: Busking
+    { moduleId: "module-8", title: "Live Playback", number: "8.1", vimeoId: "76979871", duration: "32 min" },
+    { moduleId: "module-8", title: "Executor Prioriteit", number: "8.2", vimeoId: "76979871", duration: "26 min" },
+    { moduleId: "module-8", title: "BPM Sync & Beat Detection", number: "8.3", vimeoId: "76979871", duration: "30 min" },
+    { moduleId: "module-8", title: "Show Design Tips", number: "8.4", vimeoId: "76979871", duration: "24 min" },
 ];
 
 const liveSlots = [
     {
         title: "PRAKTIJKDAG: AUDIO BASICS",
         description: "Hands-on training met kabels, microfoons en analoge mixers.",
-        startTime: new Date("2024-03-15T10:00:00"),
-        endTime: new Date("2024-03-15T16:00:00"),
+        startTime: new Date("2026-03-15T10:00:00"),
+        endTime: new Date("2026-03-15T16:00:00"),
         capacity: 6,
         prerequisiteModuleIds: ["module-1", "module-2", "module-3", "module-4"],
     },
     {
         title: "PRAKTIJKDAG: LIGHTING INIT",
         description: "Eerste keer achter de knoppen van een GrandMA3 command wing.",
-        startTime: new Date("2024-04-20T10:00:00"),
-        endTime: new Date("2024-04-20T16:00:00"),
+        startTime: new Date("2026-04-20T10:00:00"),
+        endTime: new Date("2026-04-20T16:00:00"),
         capacity: 6,
         prerequisiteModuleIds: ["module-5", "module-6"],
+    },
+    {
+        title: "PRAKTIJKDAG: ADVANCED AUDIO",
+        description: "FOH mixing voor een live band, EQ en compression masterclass.",
+        startTime: new Date("2026-05-10T10:00:00"),
+        endTime: new Date("2026-05-10T17:00:00"),
+        capacity: 8,
+        prerequisiteModuleIds: ["module-1", "module-2", "module-3", "module-4"],
+    },
+    {
+        title: "PRAKTIJKDAG: LIGHTING SHOW",
+        description: "Programmeer een volledige lichtshow en leer live busken.",
+        startTime: new Date("2026-06-05T10:00:00"),
+        endTime: new Date("2026-06-05T17:00:00"),
+        capacity: 8,
+        prerequisiteModuleIds: ["module-5", "module-6", "module-7", "module-8"],
     }
 ];
 
@@ -143,7 +189,6 @@ async function seed() {
             ...lesson,
             id,
             order: lessonCount,
-            duration: "10:00",
             resources: [],
             handoutMarkdown: "# Notes\n\nDit is een voorbeeld handout.",
         });

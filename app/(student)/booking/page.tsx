@@ -5,8 +5,10 @@ import {
     getLiveSlots,
     bookLiveSlot,
     getUserData,
+    getLessonsForModule,
     LiveSlot,
-    UserData
+    UserData,
+    Lesson
 } from "@/lib/firestore";
 import { useAuth } from "@/lib/auth";
 import {
@@ -26,7 +28,9 @@ export default function BookingPage() {
     const [loading, setLoading] = useState(true);
     const [bookingId, setBookingId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [moduleCompletionMap, setModuleCompletionMap] = useState<Record<string, boolean>>({});
 
+    // Fetch data
     useEffect(() => {
         async function fetchData() {
             try {
@@ -45,6 +49,39 @@ export default function BookingPage() {
         }
         fetchData();
     }, [user]);
+
+    // Fetch module completion status for prerequisites
+    useEffect(() => {
+        async function checkModuleCompletion() {
+            if (!userData || !slots.length) return;
+
+            const completionMap: Record<string, boolean> = {};
+
+            // Get all unique prerequisite module IDs from all slots
+            const allPrereqModuleIds = new Set<string>();
+            slots.forEach(slot => {
+                slot.prerequisiteModuleIds?.forEach(id => allPrereqModuleIds.add(id));
+            });
+
+            // For each prerequisite module, check if all its lessons are complete
+            for (const moduleId of allPrereqModuleIds) {
+                try {
+                    const lessons = await getLessonsForModule(moduleId);
+                    const allComplete = lessons.length > 0 && lessons.every((lesson: Lesson) =>
+                        userData.progress && userData.progress[lesson.id] === true
+                    );
+                    completionMap[moduleId] = allComplete;
+                } catch (err) {
+                    console.error(`Failed to check module ${moduleId}:`, err);
+                    completionMap[moduleId] = false;
+                }
+            }
+
+            setModuleCompletionMap(completionMap);
+        }
+
+        checkModuleCompletion();
+    }, [userData, slots]);
 
     const handleBook = async (slot: LiveSlot) => {
         if (!user || !userData) return;
@@ -74,29 +111,14 @@ export default function BookingPage() {
     };
 
     const isPrerequisitesMet = (slot: LiveSlot) => {
-        if (!userData || !slot.prerequisiteModuleIds) return false;
-        // Check if all prerequisite modules are completed (all lessons in them? No, just simplify to modules logic?)
-        // The implementation plan says "Modules 100% complete".
-        // Our Firestore structure has 'progress' as a record of completed LESSON IDs.
-        // So checking if a MODULE is complete requires checking if all lessons in that module are complete.
-        // FOR MVP: We will assume we check specific Lesson IDs or we simplify:
-        // Actually, let's simplify: passing a Prereq check if the User has completed *any* lesson in previous module? 
-        // Or better: Let's assume we just check if the previous module's last lesson is complete?
-        // Or fetch modules and lessons to verify?
-        // To keep it simple and performant for now: I will assume the prompt meant "if relevant modules are done".
-        // BUT data structure only tracks lesson completion.
-        // Let's rely on a simpler check: If I have > 0 progress in the module? No, that's too weak.
-        // Let's skipping strict validation for this specific step unless I fetch all lessons.
-        // OK, I will fetch all lessons in background? No.
-        // Let's make a helper: we will assume users are honest or we enforce it loosely.
-        // Actually, the user.progress is { lessonId: true }. 
-        // I'll just check if they have completed at least 3 lessons total? No.
+        if (!userData || !slot.prerequisiteModuleIds || slot.prerequisiteModuleIds.length === 0) {
+            return true; // No prerequisites
+        }
 
-        // REVISED MVP LOGIC:
-        // Assume slots are open if you have completed 'enough' items. 
-        // Or simpler: Always unlocked for now to allow testing, as strict prereq checking requires joining tables.
-        // I will add a visual "Recommended: Complete Module X" but allow booking for testing.
-        return true;
+        // Check if all prerequisite modules are completed
+        return slot.prerequisiteModuleIds.every(moduleId =>
+            moduleCompletionMap[moduleId] === true
+        );
     };
 
     if (loading) {
@@ -137,8 +159,8 @@ export default function BookingPage() {
                             <div
                                 key={slot.id}
                                 className={`bg-white border rounded-2xl p-6 transition-all ${isBooked
-                                        ? "border-green-200 bg-green-50/30"
-                                        : "border-border hover:shadow-lg"
+                                    ? "border-green-200 bg-green-50/30"
+                                    : "border-border hover:shadow-lg"
                                     }`}
                             >
                                 <div className="flex justify-between items-start mb-4">

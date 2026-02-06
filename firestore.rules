@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    // User data rules
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isAdmin();
+    }
+
+    // Curriculum rules
+    match /modules/{moduleId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /lessons/{lessonId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Submission rules
+    match /submissions/{submissionId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Live Slot rules
+    match /liveSlots/{slotId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+      // Booking logic: allowing update to bookedUserIds if signed in
+      allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bookedUserIds']);
+    }
+  }
+}

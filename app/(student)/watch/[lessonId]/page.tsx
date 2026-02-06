@@ -1,23 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useModules } from "@/lib/hooks/useModules";
 import { useUserData } from "@/lib/hooks/useUserData";
 import { markLessonComplete, Lesson, Module, getLesson } from "@/lib/firestore";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Check, FileText, Download, ExternalLink } from "lucide-react";
+import { ArrowLeft, Check, FileText, Download, ExternalLink, Lock } from "lucide-react";
+import confetti from "canvas-confetti";
+
+// Declare Vimeo Player API types
+declare global {
+    interface Window {
+        Vimeo: any;
+    }
+}
 
 export default function WatchPage() {
     const params = useParams();
     const lessonId = params.lessonId as string;
     const { user } = useAuth();
+    const iframeRef = useRef<HTMLIFrameElement>(null);
 
     const [lesson, setLesson] = useState<Lesson | null>(null);
     const [lessonLoading, setLessonLoading] = useState(true);
     const [marking, setMarking] = useState(false);
     const [completed, setCompleted] = useState(false);
+    const [videoWatched, setVideoWatched] = useState(false);
+    const [videoProgress, setVideoProgress] = useState(0);
 
     // Fetch lesson details (Still a hit, but we can cache it)
     useEffect(() => {
@@ -45,15 +56,87 @@ export default function WatchPage() {
     useEffect(() => {
         if (lesson && progress[lesson.id]) {
             setCompleted(true);
+            setVideoWatched(true); // If already completed, allow re-completion
         }
     }, [lesson, progress]);
 
+    // Vimeo Player API integration
+    useEffect(() => {
+        if (!lesson?.vimeoId || !iframeRef.current) return;
+
+        const iframe = iframeRef.current;
+        // @ts-ignore - Vimeo Player API
+        const player = new window.Vimeo.Player(iframe);
+
+        // Track video progress
+        player.on('timeupdate', (data: any) => {
+            const percentComplete = (data.percent * 100);
+            setVideoProgress(percentComplete);
+
+            // Unlock button when 95% watched
+            if (percentComplete >= 95 && !videoWatched) {
+                setVideoWatched(true);
+            }
+        });
+
+        player.on('ended', () => {
+            setVideoWatched(true);
+            setVideoProgress(100);
+        });
+
+        return () => {
+            player.off('timeupdate');
+            player.off('ended');
+        };
+    }, [lesson, videoWatched]);
+
+    // Load Vimeo Player API script
+    useEffect(() => {
+        if (typeof window !== 'undefined' && !window.Vimeo) {
+            const script = document.createElement('script');
+            script.src = 'https://player.vimeo.com/api/player.js';
+            script.async = true;
+            document.body.appendChild(script);
+        }
+    }, []);
+
     const handleMarkComplete = async () => {
-        if (!user || !lesson) return;
+        if (!user || !lesson || !videoWatched) return;
         setMarking(true);
         try {
             await markLessonComplete(user.uid, lesson.id);
             setCompleted(true);
+
+            // Trigger celebration animation
+            const duration = 3000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+
+            function randomInRange(min: number, max: number) {
+                return Math.random() * (max - min) + min;
+            }
+
+            const interval: any = setInterval(function () {
+                const timeLeft = animationEnd - Date.now();
+
+                if (timeLeft <= 0) {
+                    return clearInterval(interval);
+                }
+
+                const particleCount = 50 * (timeLeft / duration);
+
+                confetti({
+                    ...defaults,
+                    particleCount,
+                    origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+                });
+                confetti({
+                    ...defaults,
+                    particleCount,
+                    origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+                });
+            }, 250);
+
         } catch (error) {
             console.error("Failed to mark complete:", error);
         } finally {
@@ -101,6 +184,7 @@ export default function WatchPage() {
                 <div className="bg-black aspect-video w-full relative">
                     {lesson.vimeoId ? (
                         <iframe
+                            ref={iframeRef}
                             src={`https://player.vimeo.com/video/${lesson.vimeoId}?color=00FFFF&title=0&byline=0&portrait=0`}
                             className="absolute inset-0 w-full h-full"
                             allow="autoplay; fullscreen; picture-in-picture"
@@ -125,17 +209,29 @@ export default function WatchPage() {
                                 {module?.title} • {lesson.duration || "—"}
                             </p>
                         </div>
-                        <button
-                            onClick={handleMarkComplete}
-                            disabled={marking || completed}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${completed
-                                ? "bg-green-100 text-green-700"
-                                : "bg-brand-gradient text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95"
-                                }`}
-                        >
-                            <Check className="w-5 h-5" />
-                            {completed ? "Voltooid!" : marking ? "Opslaan..." : "Voltooien"}
-                        </button>
+                        <div className="relative group">
+                            <button
+                                onClick={handleMarkComplete}
+                                disabled={marking || completed || !videoWatched}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${completed
+                                    ? "bg-green-100 text-green-700"
+                                    : !videoWatched
+                                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                        : "bg-brand-gradient text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95"
+                                    }`}
+                            >
+                                {!videoWatched && !completed ? <Lock className="w-5 h-5" /> : <Check className="w-5 h-5" />}
+                                {completed ? "Voltooid!" : marking ? "Opslaan..." : "Voltooien"}
+                            </button>
+                            {!videoWatched && !completed && (
+                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                    <div className="bg-gray-900 text-white text-sm px-3 py-2 rounded-lg whitespace-nowrap">
+                                        Bekijk eerst de video volledig ({Math.round(videoProgress)}%)
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 

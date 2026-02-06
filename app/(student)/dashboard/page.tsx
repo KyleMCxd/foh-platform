@@ -3,21 +3,75 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useModules } from "@/lib/hooks/useModules";
+import { useUserData } from "@/lib/hooks/useUserData";
+import { getLessonsForModule, Lesson } from "@/lib/firestore";
 import { useAuth } from "@/lib/auth";
 import { Play, Check, Lock, BookOpen, Clock } from "lucide-react";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { modules, isLoading: loading } = useModules();
+  const { modules, isLoading: modulesLoading } = useModules();
+  const { progress, isLoading: progressLoading } = useUserData(user?.uid);
+  const [moduleLessons, setModuleLessons] = useState<Record<string, Lesson[]>>({});
+  const [lessonsLoading, setLessonsLoading] = useState(true);
 
-  // Demo: first 3 modules completed
-  const getStatus = (index: number) => {
-    if (index < 3) return "completed";
-    if (index === 3) return "current";
+  // Fetch lessons for all modules to calculate completion
+  useEffect(() => {
+    async function fetchAllLessons() {
+      if (modules.length === 0) {
+        setLessonsLoading(false);
+        return;
+      }
+
+      const lessonsMap: Record<string, Lesson[]> = {};
+      for (const module of modules) {
+        try {
+          const lessons = await getLessonsForModule(module.id);
+          lessonsMap[module.id] = lessons;
+        } catch (error) {
+          console.error(`Failed to fetch lessons for module ${module.id}:`, error);
+          lessonsMap[module.id] = [];
+        }
+      }
+      setModuleLessons(lessonsMap);
+      setLessonsLoading(false);
+    }
+
+    fetchAllLessons();
+  }, [modules]);
+
+  // Calculate if a module is complete (all lessons completed)
+  const isModuleComplete = (moduleId: string): boolean => {
+    const lessons = moduleLessons[moduleId] || [];
+    if (lessons.length === 0) return false;
+    return lessons.every(lesson => progress[lesson.id] === true);
+  };
+
+  // Calculate module status
+  const getModuleStatus = (moduleId: string, index: number): "completed" | "current" | "locked" => {
+    if (isModuleComplete(moduleId)) return "completed";
+
+    // Check if at least one lesson in this module is started
+    const lessons = moduleLessons[moduleId] || [];
+    const hasProgress = lessons.some(lesson => progress[lesson.id] === true);
+    if (hasProgress) return "current";
+
+    // Check if previous module is complete
+    if (index === 0) return "current"; // First module is always available
+    const prevModule = modules[index - 1];
+    if (prevModule && isModuleComplete(prevModule.id)) return "current";
+
     return "locked";
   };
 
-  const completedCount = 3; // Demo value
+  // Calculate total completed modules
+  const completedCount = modules.filter(m => isModuleComplete(m.id)).length;
+
+  // Find first incomplete module for "Continue Learning"
+  const currentModuleIndex = modules.findIndex(m => !isModuleComplete(m.id));
+  const currentModule = currentModuleIndex >= 0 ? modules[currentModuleIndex] : modules[modules.length - 1];
+
+  const loading = modulesLoading || progressLoading || lessonsLoading;
 
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -58,11 +112,11 @@ export default function DashboardPage() {
       <div className="p-8">
         <div className="max-w-7xl mx-auto space-y-12">
           {/* Continue Learning */}
-          {modules.length > 0 && (
+          {modules.length > 0 && currentModule && (
             <section>
               <h2 className="text-xl font-bold mb-4">Ga verder met leren</h2>
               <Link
-                href={`/module/${modules[Math.min(completedCount, modules.length - 1)]?.id}`}
+                href={`/module/${currentModule.id}`}
                 className="block md:w-fit min-w-[400px] bg-white rounded-2xl border border-border p-6 hover:shadow-lg hover:border-primary/20 transition-all group"
               >
                 <div className="flex items-center justify-between gap-8">
@@ -72,10 +126,10 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-                        Module {modules[Math.min(completedCount, modules.length - 1)]?.order}
+                        Module {currentModule.order}
                       </p>
                       <h3 className="font-bold text-lg">
-                        {modules[Math.min(completedCount, modules.length - 1)]?.title}
+                        {currentModule.title}
                       </h3>
                     </div>
                   </div>
@@ -111,16 +165,16 @@ export default function DashboardPage() {
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {modules.map((module, index) => {
-                  const status = getStatus(index);
+                  const status = getModuleStatus(module.id, index);
                   return (
                     <Link
                       key={module.id}
                       href={`/module/${module.id}`}
                       className={`block p-5 rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${status === "current"
-                        ? "bg-white border-secondary shadow-md scale-[1.02]"
-                        : status === "completed"
-                          ? "bg-white border-border hover:border-primary/30"
-                          : "bg-gray-50 border-transparent opacity-60 hover:opacity-100"
+                          ? "bg-white border-secondary shadow-md scale-[1.02]"
+                          : status === "completed"
+                            ? "bg-white border-border hover:border-primary/30"
+                            : "bg-gray-50 border-transparent opacity-60 hover:opacity-100"
                         }`}
                     >
                       <div className="flex items-start justify-between mb-4">
