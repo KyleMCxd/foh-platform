@@ -279,7 +279,7 @@ export default function AdminPage() {
 
                 {/* Tabs */}
                 <div className="max-w-7xl mx-auto px-6 overflow-x-auto">
-                    <div className="flex space-x-1">
+                    <div className="flex space-x-1 items-center">
                         {[
                             { id: "semesters", label: "Semesters", icon: GraduationCap },
                             { id: "blocks", label: "Blocks", icon: Grid },
@@ -291,14 +291,24 @@ export default function AdminPage() {
                                 key={tab.id}
                                 onClick={() => { setActiveTab(tab.id as AdminTab); setShowForm(false); }}
                                 className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id
-                                        ? "border-primary text-primary"
-                                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-200"
+                                    ? "border-primary text-primary"
+                                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-200"
                                     }`}
                             >
                                 <tab.icon className="w-4 h-4" />
                                 {tab.label}
                             </button>
                         ))}
+
+                        <div className="h-6 w-px bg-gray-200 mx-2" />
+
+                        <a
+                            href="/admin/homework"
+                            className="flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-primary hover:border-primary/50 transition-all whitespace-nowrap"
+                        >
+                            <FileText className="w-4 h-4" />
+                            Homework
+                        </a>
                     </div>
                 </div>
             </header>
