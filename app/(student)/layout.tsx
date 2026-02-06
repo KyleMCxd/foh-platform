@@ -176,35 +176,37 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
 
     return (
         <div className="min-h-screen bg-background flex flex-col lg:flex-row">
-            {/* Mobile Header */}
-            <header className="lg:hidden bg-white border-b border-border p-4 flex items-center justify-between sticky top-0 z-30">
-                <Link href="/dashboard" className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-brand-gradient flex items-center justify-center text-white font-bold">
-                        F
-                    </div>
-                    <span className="font-bold tracking-tight">FOH Academy</span>
-                </Link>
-                <button
-                    onClick={() => setIsMobileMenuOpen(true)}
-                    className="p-2 text-muted-foreground hover:bg-gray-100 rounded-lg"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+            {/* Mobile Header - Hidden on Watch Page */}
+            {!activeLessonId && (
+                <header className="lg:hidden bg-white border-b border-border p-4 flex items-center justify-between sticky top-0 z-30">
+                    <Link href="/dashboard" className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-brand-gradient flex items-center justify-center text-white font-bold">
+                            F
+                        </div>
+                        <span className="font-bold tracking-tight">FOH Academy</span>
+                    </Link>
+                    <button
+                        onClick={() => setIsMobileMenuOpen(true)}
+                        className="p-2 text-muted-foreground hover:bg-gray-100 rounded-lg"
                     >
-                        <line x1="3" y1="12" x2="21" y2="12" />
-                        <line x1="3" y1="6" x2="21" y2="6" />
-                        <line x1="3" y1="18" x2="21" y2="18" />
-                    </svg>
-                </button>
-            </header>
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            <line x1="3" y1="12" x2="21" y2="12" />
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <line x1="3" y1="18" x2="21" y2="18" />
+                        </svg>
+                    </button>
+                </header>
+            )}
 
             {/* Mobile Sidebar Overlay */}
             {isMobileMenuOpen && (
@@ -222,13 +224,15 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
                 <SidebarContent />
             </aside>
 
-            {/* Desktop Sidebar (Fixed) */}
-            <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-border flex-col z-40">
-                <SidebarContent />
-            </aside>
+            {/* Desktop Sidebar (Fixed) - Hidden on Watch Page */}
+            {!activeLessonId && (
+                <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-border flex-col z-40">
+                    <SidebarContent />
+                </aside>
+            )}
 
-            {/* Main Content */}
-            <main className="flex-1 w-full lg:ml-72">
+            {/* Main Content - No margin on Watch Page */}
+            <main className={`flex-1 w-full ${activeLessonId ? "" : "lg:ml-72"}`}>
                 {children}
             </main>
         </div>

@@ -433,6 +433,18 @@ export async function markLessonComplete(
     }, { merge: true });
 }
 
+export async function markLessonIncomplete(
+    uid: string,
+    lessonId: string
+): Promise<void> {
+    const docRef = doc(db, "users", uid);
+    await setDoc(docRef, {
+        progress: {
+            [lessonId]: false
+        }
+    }, { merge: true });
+}
+
 export async function isLessonComplete(
     uid: string,
     lessonId: string

@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth";
 import {
     getLesson,
     markLessonComplete,
+    markLessonIncomplete,
     Lesson,
     getSubmissionsForModule,
     Submission,
@@ -34,7 +35,10 @@ import {
     Loader2,
     File,
     BookOpen,
-    Save
+    Save,
+    AlignJustify,
+    X,
+    AlertCircle
 } from "lucide-react";
 
 // Types
@@ -61,6 +65,10 @@ export default function WatchPage() {
     const [videoWatched, setVideoWatched] = useState(false);
     const [videoProgress, setVideoProgress] = useState(0);
     const [marking, setMarking] = useState(false);
+
+    // UX State
+    const [playlistOpen, setPlaylistOpen] = useState(true);
+    const [showUnmarkConfirm, setShowUnmarkConfirm] = useState(false);
 
     // Notes State
     const [notes, setNotes] = useState("");
@@ -166,11 +174,32 @@ export default function WatchPage() {
     // Handlers
     const handleMarkComplete = async () => {
         if (!user || !lesson) return;
+
+        // If already completed, show confirmation to unmark
+        if (completed) {
+            setShowUnmarkConfirm(true);
+            return;
+        }
+
         setMarking(true);
         try {
             await markLessonComplete(user.uid, lesson.id);
             setCompleted(true);
             triggerConfetti();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setMarking(false);
+        }
+    };
+
+    const handleUnmark = async () => {
+        if (!user || !lesson) return;
+        setMarking(true);
+        try {
+            await markLessonIncomplete(user.uid, lesson.id);
+            setCompleted(false);
+            setShowUnmarkConfirm(false);
         } catch (e) {
             console.error(e);
         } finally {
@@ -251,18 +280,61 @@ export default function WatchPage() {
     if (!lesson) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
     return (
-        <div className="min-h-screen bg-black text-white flex flex-col-reverse lg:flex-row overflow-hidden">
+        <div className="min-h-screen bg-black text-white flex flex-col-reverse lg:flex-row overflow-hidden relative">
 
-            {/* LEFT SIDEBAR - PLAYLIST */}
-            <aside className="w-full lg:w-80 bg-zinc-900 border-r border-zinc-800 flex flex-col h-auto min-h-[300px] lg:h-screen overflow-hidden shrink-0">
-                <div className="p-4 border-b border-zinc-800">
-                    <Link href="/curriculum" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-4 text-sm">
-                        <ChevronLeft className="w-4 h-4" /> Back to Curriculum
-                    </Link>
-                    <h2 className="font-bold text-lg text-white mb-1 line-clamp-1">{module?.title}</h2>
-                    <p className="text-xs text-zinc-500">{moduleLessons.length} lessons</p>
+            {/* UNMARK CONFIRMATION DIALOG */}
+            {showUnmarkConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-zinc-900 border border-zinc-700 p-6 rounded-2xl shadow-2xl max-w-sm w-full mx-4 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                                <AlertCircle className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-lg">Les Onvoltooien?</h3>
+                                <p className="text-zinc-400 text-sm">Weet je zeker dat je de les wilt onvoltooien?</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowUnmarkConfirm(false)}
+                                className="flex-1 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition-colors"
+                            >
+                                Nee, annuleren
+                            </button>
+                            <button
+                                onClick={handleUnmark}
+                                className="flex-1 py-2 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 font-bold transition-colors"
+                            >
+                                Ja, onvoltooien
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar h-[300px] lg:h-auto">
+            )}
+
+            {/* LEFT SIDEBAR - PLAYLIST (COLLAPSIBLE) */}
+            <aside
+                className={`bg-zinc-900 border-r border-zinc-800 flex flex-col h-auto min-h-[300px] lg:h-screen overflow-hidden shrink-0 transition-all duration-300 ease-in-out ${playlistOpen ? "w-full lg:w-80" : "w-0 lg:w-0 border-none"
+                    }`}
+            >
+                <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+                    <div>
+                        <Link href="/curriculum" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-4 text-sm">
+                            <ChevronLeft className="w-4 h-4" /> Back to Curriculum
+                        </Link>
+                        <h2 className="font-bold text-lg text-white mb-1 line-clamp-1 truncate w-48">{module?.title}</h2>
+                        <p className="text-xs text-zinc-500">{moduleLessons.length} lessons</p>
+                    </div>
+                    {/* Close button for sidebar */}
+                    <button
+                        onClick={() => setPlaylistOpen(false)}
+                        className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white lg:hidden"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar h-[300px] lg:h-auto whitespace-nowrap">
                     {moduleLessons.map((l) => {
                         const isCurrent = l.id === lesson.id;
                         const isDone = progress[l.id];
@@ -281,8 +353,8 @@ export default function WatchPage() {
                                         <div className="w-4 h-4 rounded-full border border-zinc-600" />
                                     )}
                                 </div>
-                                <div>
-                                    <h4 className={`text-sm font-medium ${isCurrent ? "text-white" : "text-zinc-400"}`}>{l.title}</h4>
+                                <div className="overflow-hidden">
+                                    <h4 className={`text-sm font-medium truncate ${isCurrent ? "text-white" : "text-zinc-400"}`}>{l.title}</h4>
                                     <span className="text-xs text-zinc-600">{l.duration}</span>
                                 </div>
                             </Link>
@@ -291,11 +363,32 @@ export default function WatchPage() {
                 </div>
             </aside>
 
+            {/* TOGGLE SIDEBAR BUTTON (When playlist is closed) */}
+            {!playlistOpen && (
+                <button
+                    onClick={() => setPlaylistOpen(true)}
+                    className="absolute top-4 left-4 z-20 p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white hover:border-primary/50 transition-colors shadow-lg"
+                    title="Open Playlist"
+                >
+                    <AlignJustify className="w-5 h-5" />
+                </button>
+            )}
+
             {/* MAIN CONTENT */}
             <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-zinc-950">
 
                 {/* VIDEO PLAYER */}
-                <div className="w-full aspect-video bg-black relative shrink-0">
+                <div className="w-full aspect-video bg-black relative shrink-0 group">
+                    {/* Mobile Sidebar Toggle Overlay Button if closed */}
+                    {!playlistOpen && (
+                        <button
+                            onClick={() => setPlaylistOpen(true)}
+                            className="absolute top-4 left-4 z-20 p-2 bg-black/50 backdrop-blur hover:bg-black/80 rounded-lg text-white transition-colors lg:hidden"
+                        >
+                            <AlignJustify className="w-5 h-5" />
+                        </button>
+                    )}
+
                     {lesson.vimeoId ? (
                         <iframe
                             ref={iframeRef}
@@ -312,7 +405,17 @@ export default function WatchPage() {
                 </div>
 
                 {/* TABS NAVIGATION */}
-                <div className="flex items-center border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10 overflow-x-auto no-scrollbar">
+                <div className="flex items-center border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10 overflow-x-auto no-scrollbar pl-16 lg:pl-0">
+                    {/* Desktop Toggle Button */}
+                    {!playlistOpen && (
+                        <button
+                            onClick={() => setPlaylistOpen(true)}
+                            className="hidden lg:flex items-center justify-center w-14 h-full border-r border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                        >
+                            <AlignJustify className="w-5 h-5" />
+                        </button>
+                    )}
+
                     {[
                         { id: "INFO", label: "Overview", icon: FileText },
                         { id: "HANDOUT", label: "Handout", icon: Download },
@@ -322,7 +425,7 @@ export default function WatchPage() {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as Tab)}
-                            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
+                            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id
                                 ? "border-primary text-primary bg-zinc-800/50"
                                 : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-800"
                                 }`}
@@ -352,8 +455,9 @@ export default function WatchPage() {
                             <div className="flex items-center gap-4">
                                 <button
                                     onClick={handleMarkComplete}
-                                    disabled={marking || completed || !videoWatched}
-                                    className={`flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-lg transition-all transform active:scale-95 ${completed ? "bg-green-500/10 text-green-500 border border-green-500/20"
+                                    disabled={marking || (!completed && !videoWatched)}
+                                    // Enabled if completed (to unmark) OR if videoWatched (to mark)
+                                    className={`flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-lg transition-all transform active:scale-95 ${completed ? "bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20"
                                         : !videoWatched ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                                             : "bg-brand-gradient text-white shadow-lg shadow-primary/20 hover:opacity-90"
                                         }`}
@@ -369,6 +473,7 @@ export default function WatchPage() {
                                 )}
                             </div>
 
+                            {/* Resources ... */}
                             {lesson.resources && lesson.resources.length > 0 && (
                                 <div className="pt-8 border-t border-zinc-800">
                                     <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-4">Resources</h3>
