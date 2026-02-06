@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import Logo from "@/components/ui/Logo";
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -32,11 +33,9 @@ export default function LoginPage() {
                 <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-gray-600"></div>
                 <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-gray-600"></div>
 
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold tracking-tighter text-white mb-2">
-                        FOH <span className="text-brand-secondary">ACADEMY</span>
-                    </h1>
-                    <p className="text-gray-400 text-sm">ACCESS CONTROL SYSTEM</p>
+                <div className="text-center mb-8 flex flex-col items-center">
+                    <Logo className="scale-125" />
+                    <p className="text-gray-400 text-xs mt-3 tracking-[0.2em]">ACCESS CONTROL SYSTEM</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">

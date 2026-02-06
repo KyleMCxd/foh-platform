@@ -11,6 +11,7 @@ import {
     Calendar,
     GraduationCap,
 } from "lucide-react";
+import Logo from "@/components/ui/Logo";
 
 export default function SidebarContent() {
     const { user, logout } = useAuth();
@@ -20,34 +21,12 @@ export default function SidebarContent() {
         <div className="flex flex-col h-full bg-white text-zinc-900">
             {/* Logo */}
             <div className="p-6 border-b border-gray-200">
-                <Link href="/dashboard" className="flex items-center gap-3 group">
-                    <div className="w-10 h-10 rounded-xl bg-brand-gradient flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
-                        {/* Vector Logo Placeholder */}
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="w-6 h-6"
-                        >
-                            <line x1="4" y1="21" x2="4" y2="14" />
-                            <line x1="4" y1="10" x2="4" y2="3" />
-                            <line x1="12" y1="21" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12" y2="3" />
-                            <line x1="20" y1="21" x2="20" y2="16" />
-                            <line x1="20" y1="12" x2="20" y2="3" />
-                            <line x1="1" y1="14" x2="7" y2="14" />
-                            <line x1="9" y1="8" x2="15" y2="8" />
-                            <line x1="17" y1="16" x2="23" y2="16" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h1 className="font-bold text-lg tracking-tight leading-none group-hover:text-primary transition-colors">FOH Academy</h1>
-                        <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mt-0.5">Student Portal</p>
-                    </div>
+                <Link href="/dashboard" className="block w-fit">
+                    <Logo className="text-zinc-900" />
+                    {/* Note: The logo text is white by default, we might need to handle dark/light modes. 
+                       But the requested logo had white text. The sidebar is white background. 
+                       We need the text to be visible. The requested logo has black outline/shadow, so it should pop on white too.
+                       Let's trust the component's drop-shadows. */}
                 </Link>
             </div>
 
