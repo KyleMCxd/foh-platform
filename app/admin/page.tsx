@@ -13,13 +13,27 @@ import {
     updateLesson,
     deleteLesson,
     getUserData,
+    createSemester,
+    updateSemester,
+    deleteSemester,
+    createBlock,
+    updateBlock,
+    deleteBlock,
+    createWeek,
+    updateWeek,
+    deleteWeek,
+    Semester,
+    Block,
     Module,
+    Week,
     Lesson,
 } from "@/lib/firestore";
+import { useSemesters } from "@/lib/hooks/useSemesters";
+import { useBlocks } from "@/lib/hooks/useBlocks";
+import { useModules } from "@/lib/hooks/useModules";
+import { useWeeks } from "@/lib/hooks/useWeeks";
 import {
     Plus,
-    ChevronDown,
-    ChevronRight,
     Edit,
     Trash2,
     Save,
@@ -27,40 +41,39 @@ import {
     Video,
     FileText,
     Loader2,
+    Layout,
+    BookOpen,
+    Calendar,
+    GraduationCap,
+    Grid,
+    List,
+    ChevronRight,
+    Search
 } from "lucide-react";
+
+type AdminTab = "semesters" | "blocks" | "modules" | "weeks" | "lessons";
 
 export default function AdminPage() {
     const { user } = useAuth();
     const router = useRouter();
-    const [modules, setModules] = useState<Module[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [expandedModule, setExpandedModule] = useState<string | null>(null);
-    const [lessons, setLessons] = useState<Record<string, Lesson[]>>({});
+    const [activeTab, setActiveTab] = useState<AdminTab>("modules");
     const [isAdmin, setIsAdmin] = useState(false);
+    const [checkingAdmin, setCheckingAdmin] = useState(true);
 
-    // Module Form State
-    const [showModuleForm, setShowModuleForm] = useState(false);
-    const [editingModule, setEditingModule] = useState<Module | null>(null);
-    const [moduleFormData, setModuleFormData] = useState({
-        title: "",
-        description: "",
-        order: 1,
-        semester: 1,
-        status: "draft" as "draft" | "published",
-    });
+    // Hooks for data
+    const { semesters, mutate: mutateSemesters } = useSemesters();
+    const { blocks, mutate: mutateBlocks } = useBlocks();
+    const { modules, mutate: mutateModules } = useModules();
+    const { weeks, mutate: mutateWeeks } = useWeeks();
 
-    // Lesson Form State
-    const [showLessonForm, setShowLessonForm] = useState<string | null>(null);
-    const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
-    const [lessonFormData, setLessonFormData] = useState({
-        title: "",
-        number: "",
-        vimeoId: "",
-        handoutPdfUrl: "",
-        handoutMarkdown: "",
-        duration: "",
-        order: 1,
-    });
+    // Local state for lessons (since they depend on module selection)
+    const [lessons, setLessons] = useState<Lesson[]>([]);
+    const [selectedModuleForLessons, setSelectedModuleForLessons] = useState<string>("");
+
+    // Form States
+    const [showForm, setShowForm] = useState(false);
+    const [editingItem, setEditingItem] = useState<any>(null);
+    const [formData, setFormData] = useState<any>({});
 
     // Check admin access
     useEffect(() => {
@@ -74,140 +87,168 @@ export default function AdminPage() {
                 console.warn("User is not admin, but allowing access for demo");
             }
             setIsAdmin(true);
-            setLoading(false);
+            setCheckingAdmin(false);
         }
         checkAdmin();
     }, [user, router]);
 
-    // Fetch modules
-    useEffect(() => {
-        async function fetchModules() {
-            try {
-                const data = await getModules();
-                setModules(data);
-            } catch (error) {
-                console.error("Failed to fetch modules:", error);
-            }
-        }
-        if (isAdmin) fetchModules();
-    }, [isAdmin]);
-
-    // Fetch lessons for expanded module
+    // Fetch lessons when module selected
     useEffect(() => {
         async function fetchLessons() {
-            if (!expandedModule || lessons[expandedModule]) return;
-            try {
-                const data = await getLessonsForModule(expandedModule);
-                setLessons((prev) => ({ ...prev, [expandedModule]: data }));
-            } catch (error) {
-                console.error("Failed to fetch lessons:", error);
+            if (selectedModuleForLessons) {
+                try {
+                    const data = await getLessonsForModule(selectedModuleForLessons);
+                    setLessons(data.sort((a, b) => a.order - b.order));
+                } catch (error) {
+                    console.error("Failed to fetch lessons:", error);
+                }
+            } else {
+                setLessons([]);
             }
         }
         fetchLessons();
-    }, [expandedModule, lessons]);
+    }, [selectedModuleForLessons]);
 
-    // Module CRUD Handlers
-    const handleSaveModule = async () => {
+    // Generic Form Handlers
+    const resetForm = () => {
+        setShowForm(false);
+        setEditingItem(null);
+        setFormData({});
+    };
+
+    const handleEdit = (item: any) => {
+        setEditingItem(item);
+        setFormData({ ...item });
+        setShowForm(true);
+    };
+
+    const handleDelete = async (id: string, type: AdminTab) => {
+        if (!confirm("Are you sure you want to delete this item? This cannot be undone.")) return;
+
         try {
-            if (editingModule) {
-                await updateModule(editingModule.id, moduleFormData);
-            } else {
-                await createModule(moduleFormData);
+            switch (type) {
+                case "semesters": await deleteSemester(id); await mutateSemesters(); break;
+                case "blocks": await deleteBlock(id); await mutateBlocks(); break;
+                case "modules": await deleteModule(id); await mutateModules(); break;
+                case "weeks": await deleteWeek(id); await mutateWeeks(); break;
+                case "lessons":
+                    if (selectedModuleForLessons) {
+                        await deleteLesson(id);
+                        const updated = await getLessonsForModule(selectedModuleForLessons);
+                        setLessons(updated.sort((a, b) => a.order - b.order));
+                    }
+                    break;
             }
-            const data = await getModules();
-            setModules(data);
-            resetModuleForm();
         } catch (error) {
-            console.error("Failed to save module:", error);
+            console.error("Delete failed:", error);
+            alert("Failed to delete item");
         }
     };
 
-    const handleDeleteModule = async (id: string) => {
-        if (!confirm("Delete this module and all its lessons?")) return;
+    const handleSave = async () => {
         try {
-            await deleteModule(id);
-            setModules((prev) => prev.filter((m) => m.id !== id));
-        } catch (error) {
-            console.error("Failed to delete module:", error);
-        }
-    };
+            const isEdit = !!editingItem;
+            // Clean data
+            const cleanData = { ...formData };
+            delete cleanData.id;
+            // Ensure numbers are numbers
+            if (cleanData.order) cleanData.order = Number(cleanData.order);
+            if (cleanData.weekNumber) cleanData.weekNumber = Number(cleanData.weekNumber);
 
-    const resetModuleForm = () => {
-        setShowModuleForm(false);
-        setEditingModule(null);
-        setModuleFormData({ title: "", description: "", order: 1, semester: 1, status: "draft" });
-    };
-
-    const startEditModule = (module: Module) => {
-        setEditingModule(module);
-        setModuleFormData({
-            title: module.title,
-            description: module.description,
-            order: module.order,
-            semester: module.semester,
-            status: module.status,
-        });
-        setShowModuleForm(true);
-    };
-
-    // Lesson CRUD Handlers
-    const handleSaveLesson = async (moduleId: string) => {
-        try {
-            if (editingLesson) {
-                await updateLesson(editingLesson.id, lessonFormData);
-            } else {
-                await createLesson({ ...lessonFormData, moduleId, resources: [] });
+            switch (activeTab) {
+                case "semesters":
+                    if (isEdit) await updateSemester(editingItem.id, cleanData);
+                    else await createSemester(cleanData);
+                    await mutateSemesters();
+                    break;
+                case "blocks":
+                    if (isEdit) await updateBlock(editingItem.id, cleanData);
+                    else await createBlock(cleanData);
+                    await mutateBlocks();
+                    break;
+                case "modules":
+                    if (isEdit) await updateModule(editingItem.id, cleanData);
+                    else await createModule(cleanData);
+                    await mutateModules();
+                    break;
+                case "weeks":
+                    if (isEdit) await updateWeek(editingItem.id, cleanData);
+                    else await createWeek(cleanData);
+                    await mutateWeeks();
+                    break;
+                case "lessons":
+                    if (!selectedModuleForLessons) return;
+                    if (isEdit) await updateLesson(editingItem.id, cleanData);
+                    else await createLesson({ ...cleanData, moduleId: selectedModuleForLessons, resources: [] });
+                    const updated = await getLessonsForModule(selectedModuleForLessons);
+                    setLessons(updated.sort((a, b) => a.order - b.order));
+                    break;
             }
-            const data = await getLessonsForModule(moduleId);
-            setLessons((prev) => ({ ...prev, [moduleId]: data }));
-            resetLessonForm();
+            resetForm();
         } catch (error) {
-            console.error("Failed to save lesson:", error);
+            console.error("Save failed:", error);
+            alert("Failed to save item: " + error);
         }
     };
 
-    const handleDeleteLesson = async (moduleId: string, lessonId: string) => {
-        if (!confirm("Delete this lesson?")) return;
-        try {
-            await deleteLesson(lessonId);
-            setLessons((prev) => ({
-                ...prev,
-                [moduleId]: prev[moduleId].filter((l) => l.id !== lessonId),
-            }));
-        } catch (error) {
-            console.error("Failed to delete lesson:", error);
-        }
-    };
+    // Render Table Helper
+    const RenderTable = ({
+        items,
+        columns
+    }: {
+        items: any[];
+        columns: { key: string; label: string; render?: (item: any) => React.ReactNode }[]
+    }) => (
+        <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+            <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-700 font-medium border-b border-border">
+                    <tr>
+                        {columns.map((col) => (
+                            <th key={col.key} className="px-6 py-3">{col.label}</th>
+                        ))}
+                        <th className="px-6 py-3 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                    {items.length === 0 ? (
+                        <tr>
+                            <td colSpan={columns.length + 1} className="px-6 py-8 text-center text-muted-foreground">
+                                No items found.
+                            </td>
+                        </tr>
+                    ) : (
+                        items.map((item) => (
+                            <tr key={item.id} className="hover:bg-gray-50/50">
+                                {columns.map((col) => (
+                                    <td key={col.key} className="px-6 py-4">
+                                        {col.render ? col.render(item) : item[col.key]}
+                                    </td>
+                                ))}
+                                <td className="px-6 py-4 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <button
+                                            onClick={() => handleEdit(item)}
+                                            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-primary transition-colors"
+                                        >
+                                            <Edit className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(item.id, activeTab)}
+                                            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+            </table>
+        </div>
+    );
 
-    const resetLessonForm = () => {
-        setShowLessonForm(null);
-        setEditingLesson(null);
-        setLessonFormData({
-            title: "",
-            number: "",
-            vimeoId: "",
-            handoutPdfUrl: "",
-            handoutMarkdown: "",
-            duration: "",
-            order: 1,
-        });
-    };
-
-    const startEditLesson = (moduleId: string, lesson: Lesson) => {
-        setEditingLesson(lesson);
-        setLessonFormData({
-            title: lesson.title,
-            number: lesson.number || "",
-            vimeoId: lesson.vimeoId,
-            handoutPdfUrl: lesson.handoutPdfUrl || "",
-            handoutMarkdown: lesson.handoutMarkdown || "",
-            duration: lesson.duration,
-            order: lesson.order,
-        });
-        setShowLessonForm(moduleId);
-    };
-
-    if (loading) {
+    if (checkingAdmin) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -219,372 +260,341 @@ export default function AdminPage() {
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
             <header className="bg-white border-b border-border sticky top-0 z-50">
-                <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-brand-gradient flex items-center justify-center text-white font-bold text-lg">
-                            F
+                            A
                         </div>
                         <div>
                             <h1 className="font-bold text-lg">FOH Academy Admin</h1>
-                            <p className="text-xs text-muted-foreground">Content Management</p>
+                            <p className="text-xs text-muted-foreground">Content Management System</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <a
-                            href="/admin/homework"
-                            className="text-sm text-muted-foreground hover:text-primary"
-                        >
-                            Homework
-                        </a>
-                        <a
-                            href="/dashboard"
-                            className="text-sm text-muted-foreground hover:text-primary"
-                        >
+                        <a href="/dashboard" className="text-sm text-muted-foreground hover:text-primary">
                             Student Portal →
                         </a>
                     </div>
                 </div>
+
+                {/* Tabs */}
+                <div className="max-w-7xl mx-auto px-6 overflow-x-auto">
+                    <div className="flex space-x-1">
+                        {[
+                            { id: "semesters", label: "Semesters", icon: GraduationCap },
+                            { id: "blocks", label: "Blocks", icon: Grid },
+                            { id: "modules", label: "Modules", icon: BookOpen },
+                            { id: "weeks", label: "Weeks", icon: Calendar },
+                            { id: "lessons", label: "Lessons", icon: Video },
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => { setActiveTab(tab.id as AdminTab); setShowForm(false); }}
+                                className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id
+                                        ? "border-primary text-primary"
+                                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-200"
+                                    }`}
+                            >
+                                <tab.icon className="w-4 h-4" />
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </header>
 
-            <main className="max-w-6xl mx-auto px-6 py-10">
-                {/* Modules Section */}
+            <main className="max-w-7xl mx-auto px-6 py-8">
+                {/* Actions Bar */}
                 <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl font-bold">Curriculum Modules</h2>
+                    <h2 className="text-2xl font-bold capitalize">{activeTab} Management</h2>
                     <button
-                        onClick={() => setShowModuleForm(true)}
+                        onClick={() => { resetForm(); setShowForm(true); }}
                         className="flex items-center gap-2 bg-brand-gradient text-white px-5 py-2.5 rounded-lg font-medium shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all"
                     >
-                        <Plus className="w-4 h-4" /> Add Module
+                        <Plus className="w-4 h-4" /> Add {activeTab.slice(0, -1)}
                     </button>
                 </div>
 
-                {/* Module Form Modal */}
-                {showModuleForm && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-bold">
-                                    {editingModule ? "Edit Module" : "Add New Module"}
-                                </h3>
-                                <button onClick={resetModuleForm} className="text-gray-400 hover:text-gray-600">
-                                    <X className="w-5 h-5" />
-                                </button>
+                {/* Content Rendering */}
+                {activeTab === "semesters" && (
+                    <RenderTable
+                        items={semesters}
+                        columns={[
+                            { key: "order", label: "#" },
+                            { key: "title", label: "Title" },
+                            { key: "description", label: "Description" },
+                        ]}
+                    />
+                )}
+
+                {activeTab === "blocks" && (
+                    <RenderTable
+                        items={blocks}
+                        columns={[
+                            { key: "order", label: "#" },
+                            { key: "title", label: "Title" },
+                            { key: "semesterId", label: "Semester", render: (b) => semesters.find(s => s.id === b.semesterId)?.title || b.semesterId },
+                            { key: "description", label: "Description" },
+                        ]}
+                    />
+                )}
+
+                {activeTab === "modules" && (
+                    <RenderTable
+                        items={modules}
+                        columns={[
+                            { key: "order", label: "#" },
+                            { key: "title", label: "Title" },
+                            { key: "blockId", label: "Block", render: (m) => blocks.find(b => b.id === m.blockId)?.title || m.blockId },
+                            { key: "status", label: "Status", render: (m) => <span className={`px-2 py-0.5 rounded text-xs font-bold ${m.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{m.status}</span> },
+                        ]}
+                    />
+                )}
+
+                {activeTab === "weeks" && (
+                    <RenderTable
+                        items={weeks}
+                        columns={[
+                            { key: "weekNumber", label: "Week #" },
+                            { key: "title", label: "Title" },
+                            { key: "moduleId", label: "Module", render: (w) => modules.find(m => m.id === w.moduleId)?.title || w.moduleId },
+                        ]}
+                    />
+                )}
+
+                {activeTab === "lessons" && (
+                    <div className="space-y-6">
+                        {/* Module Selector for Lessons */}
+                        <div className="bg-white p-4 rounded-xl border border-border flex items-center gap-4">
+                            <label className="font-medium text-sm text-gray-700">Select Module:</label>
+                            <select
+                                value={selectedModuleForLessons}
+                                onChange={(e) => setSelectedModuleForLessons(e.target.value)}
+                                className="flex-1 max-w-md px-3 py-2 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                            >
+                                <option value="">Select a module to view lessons...</option>
+                                {modules.map(m => (
+                                    <option key={m.id} value={m.id}>{m.title}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {selectedModuleForLessons ? (
+                            <RenderTable
+                                items={lessons}
+                                columns={[
+                                    { key: "order", label: "#" },
+                                    { key: "number", label: "Code" },
+                                    { key: "title", label: "Title" },
+                                    { key: "duration", label: "Duration" },
+                                ]}
+                            />
+                        ) : (
+                            <div className="text-center py-12 text-muted-foreground">
+                                Please select a module to manage its lessons.
                             </div>
-                            <div className="space-y-4">
+                        )}
+                    </div>
+                )}
+            </main>
+
+            {/* General Form Modal */}
+            {showForm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold capitalize">
+                                {editingItem ? "Edit" : "Add New"} {activeTab.slice(0, -1)}
+                            </h3>
+                            <button onClick={resetForm} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* DYNAMIC FORM FIELDS BASED ON ACTIVE TAB */}
+
+                            {/* Common Fields */}
+                            {(activeTab !== "weeks") && (
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Title</label>
+                                    <label className="block text-sm font-medium mb-1">Order</label>
                                     <input
-                                        type="text"
-                                        value={moduleFormData.title}
-                                        onChange={(e) =>
-                                            setModuleFormData({ ...moduleFormData, title: e.target.value })
-                                        }
-                                        placeholder="Module 1: Infrastructuur"
-                                        className="w-full px-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                                        type="number"
+                                        value={formData.order || ""}
+                                        onChange={(e) => setFormData({ ...formData, order: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
+                                        placeholder="1"
                                     />
                                 </div>
+                            )}
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Title</label>
+                                <input
+                                    type="text"
+                                    value={formData.title || ""}
+                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                    className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
+                                    placeholder="Title"
+                                />
+                            </div>
+
+                            {/* Description (Semesters, Blocks, Modules, Lessons) */}
+                            {["semesters", "blocks", "modules", "lessons"].includes(activeTab) && (
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Description</label>
                                     <textarea
-                                        value={moduleFormData.description}
-                                        onChange={(e) =>
-                                            setModuleFormData({ ...moduleFormData, description: e.target.value })
-                                        }
-                                        placeholder="Brief description of module content..."
+                                        value={formData.description || ""}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
+                                        placeholder="Description..."
                                         rows={3}
-                                        className="w-full px-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-none"
                                     />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                            )}
+
+                            {/* Blocks Specific */}
+                            {activeTab === "blocks" && (
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Parent Semester</label>
+                                    <select
+                                        value={formData.semesterId || ""}
+                                        onChange={(e) => setFormData({ ...formData, semesterId: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
+                                    >
+                                        <option value="">Select Semester...</option>
+                                        {semesters.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Modules Specific */}
+                            {activeTab === "modules" && (
+                                <>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Order</label>
-                                        <input
-                                            type="number"
-                                            value={moduleFormData.order}
-                                            onChange={(e) =>
-                                                setModuleFormData({ ...moduleFormData, order: parseInt(e.target.value) || 1 })
-                                            }
-                                            className="w-full px-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Semester</label>
-                                        <input
-                                            type="number"
-                                            value={moduleFormData.semester}
-                                            onChange={(e) =>
-                                                setModuleFormData({ ...moduleFormData, semester: parseInt(e.target.value) || 1 })
-                                            }
-                                            className="w-full px-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                        />
+                                        <label className="block text-sm font-medium mb-1">Parent Block</label>
+                                        <select
+                                            value={formData.blockId || ""}
+                                            onChange={(e) => setFormData({ ...formData, blockId: e.target.value })}
+                                            className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
+                                        >
+                                            <option value="">Select Block...</option>
+                                            {blocks.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Status</label>
                                         <select
-                                            value={moduleFormData.status}
-                                            onChange={(e) =>
-                                                setModuleFormData({
-                                                    ...moduleFormData,
-                                                    status: e.target.value as "draft" | "published",
-                                                })
-                                            }
-                                            className="w-full px-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                                            value={formData.status || "draft"}
+                                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                            className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
                                         >
                                             <option value="draft">Draft</option>
                                             <option value="published">Published</option>
                                         </select>
                                     </div>
-                                </div>
-                            </div>
-                            <div className="flex gap-3 mt-8">
-                                <button
-                                    onClick={resetModuleForm}
-                                    className="flex-1 py-3 rounded-lg border border-border font-medium hover:bg-gray-50"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleSaveModule}
-                                    className="flex-1 py-3 rounded-lg bg-brand-gradient text-white font-medium flex items-center justify-center gap-2"
-                                >
-                                    <Save className="w-4 h-4" />
-                                    {editingModule ? "Update Module" : "Create Module"}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                                </>
+                            )}
 
-                {/* Lesson Form Modal */}
-                {showLessonForm && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 max-h-[90vh] overflow-y-auto">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-bold">
-                                    {editingLesson ? "Edit Lesson" : "Add New Lesson"}
-                                </h3>
-                                <button onClick={resetLessonForm} className="text-gray-400 hover:text-gray-600">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="col-span-1">
-                                        <label className="block text-sm font-medium mb-1">Number</label>
-                                        <input
-                                            type="text"
-                                            value={lessonFormData.number}
-                                            onChange={(e) =>
-                                                setLessonFormData({ ...lessonFormData, number: e.target.value })
-                                            }
-                                            placeholder="1.1"
-                                            className="w-full px-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                        />
-                                    </div>
-                                    <div className="col-span-2">
-                                        <label className="block text-sm font-medium mb-1">Title</label>
-                                        <input
-                                            type="text"
-                                            value={lessonFormData.title}
-                                            onChange={(e) =>
-                                                setLessonFormData({ ...lessonFormData, title: e.target.value })
-                                            }
-                                            placeholder="De Kabel"
-                                            className="w-full px-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
+                            {/* Weeks Specific */}
+                            {activeTab === "weeks" && (
+                                <>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">
-                                            <Video className="w-4 h-4 inline mr-1" /> Vimeo Video ID
-                                        </label>
+                                        <label className="block text-sm font-medium mb-1">Week Number (Global)</label>
                                         <input
-                                            type="text"
-                                            value={lessonFormData.vimeoId}
-                                            onChange={(e) =>
-                                                setLessonFormData({ ...lessonFormData, vimeoId: e.target.value })
-                                            }
-                                            placeholder="123456789"
-                                            className="w-full px-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                                            type="number"
+                                            value={formData.weekNumber || ""}
+                                            onChange={(e) => setFormData({ ...formData, weekNumber: e.target.value })}
+                                            className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
+                                            placeholder="1"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Duration</label>
+                                        <label className="block text-sm font-medium mb-1">Parent Module</label>
+                                        <select
+                                            value={formData.moduleId || ""}
+                                            onChange={(e) => setFormData({ ...formData, moduleId: e.target.value })}
+                                            className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
+                                        >
+                                            <option value="">Select Module...</option>
+                                            {modules.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Lessons Specific */}
+                            {activeTab === "lessons" && (
+                                <>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Lesson Code</label>
+                                            <input
+                                                type="text"
+                                                value={formData.number || ""}
+                                                onChange={(e) => setFormData({ ...formData, number: e.target.value })}
+                                                className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
+                                                placeholder="B1 L1.1"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Duration</label>
+                                            <input
+                                                type="text"
+                                                value={formData.duration || ""}
+                                                onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                                                className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
+                                                placeholder="20 min"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Vimeo ID</label>
                                         <input
                                             type="text"
-                                            value={lessonFormData.duration}
-                                            onChange={(e) =>
-                                                setLessonFormData({ ...lessonFormData, duration: e.target.value })
-                                            }
-                                            placeholder="25 min"
-                                            className="w-full px-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                                            value={formData.vimeoId || ""}
+                                            onChange={(e) => setFormData({ ...formData, vimeoId: e.target.value })}
+                                            className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
+                                            placeholder="12345678"
                                         />
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Order</label>
-                                    <input
-                                        type="number"
-                                        value={lessonFormData.order}
-                                        onChange={(e) =>
-                                            setLessonFormData({ ...lessonFormData, order: parseInt(e.target.value) || 1 })
-                                        }
-                                        className="w-full px-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">
-                                        <FileText className="w-4 h-4 inline mr-1" /> Handout PDF URL
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={lessonFormData.handoutPdfUrl}
-                                        onChange={(e) =>
-                                            setLessonFormData({ ...lessonFormData, handoutPdfUrl: e.target.value })
-                                        }
-                                        placeholder="https://... or paste PDF URL"
-                                        className="w-full px-4 py-3 rounded-lg border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex gap-3 mt-8">
-                                <button
-                                    onClick={resetLessonForm}
-                                    className="flex-1 py-3 rounded-lg border border-border font-medium hover:bg-gray-50"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => handleSaveLesson(showLessonForm)}
-                                    className="flex-1 py-3 rounded-lg bg-brand-gradient text-white font-medium flex items-center justify-center gap-2"
-                                >
-                                    <Save className="w-4 h-4" />
-                                    {editingLesson ? "Update Lesson" : "Create Lesson"}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Parent Week</label>
+                                        <select
+                                            value={formData.weekId || ""}
+                                            onChange={(e) => setFormData({ ...formData, weekId: e.target.value })}
+                                            className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
+                                        >
+                                            <option value="">Select Week (Optional)...</option>
+                                            {/* Ideally filter weeks by selected module */}
+                                            {selectedModuleForLessons && weeks.filter(w => w.moduleId === selectedModuleForLessons).map(w => (
+                                                <option key={w.id} value={w.id}>{w.title}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </>
+                            )}
 
-                {/* Modules List */}
-                <div className="space-y-4">
-                    {modules.length === 0 ? (
-                        <div className="text-center py-20 bg-white border border-dashed border-border rounded-2xl">
-                            <p className="text-muted-foreground mb-4">No modules created yet.</p>
+                        </div>
+
+                        <div className="flex gap-3 mt-8">
                             <button
-                                onClick={() => setShowModuleForm(true)}
-                                className="text-primary font-medium hover:underline"
+                                onClick={resetForm}
+                                className="flex-1 py-3 rounded-lg border border-border font-medium hover:bg-gray-50"
                             >
-                                Create your first module →
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSave}
+                                className="flex-1 py-3 rounded-lg bg-brand-gradient text-white font-medium flex items-center justify-center gap-2"
+                            >
+                                <Save className="w-4 h-4" />
+                                Save {activeTab.slice(0, -1)}
                             </button>
                         </div>
-                    ) : (
-                        modules.map((module) => (
-                            <div
-                                key={module.id}
-                                className="bg-white border border-border rounded-xl overflow-hidden shadow-sm"
-                            >
-                                {/* Module Header */}
-                                <div className="flex items-center justify-between p-5 bg-gray-50/50">
-                                    <button
-                                        onClick={() =>
-                                            setExpandedModule(expandedModule === module.id ? null : module.id)
-                                        }
-                                        className="flex items-center gap-3 text-left flex-1"
-                                    >
-                                        {expandedModule === module.id ? (
-                                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                                        ) : (
-                                            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                                        )}
-                                        <div>
-                                            <h3 className="font-semibold text-lg">{module.title}</h3>
-                                            <p className="text-sm text-muted-foreground">
-                                                Semester {module.semester} • Order: {module.order} •{" "}
-                                                <span
-                                                    className={
-                                                        module.status === "published"
-                                                            ? "text-green-600"
-                                                            : "text-orange-500"
-                                                    }
-                                                >
-                                                    {module.status}
-                                                </span>
-                                            </p>
-                                        </div>
-                                    </button>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => startEditModule(module)}
-                                            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
-                                        >
-                                            <Edit className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteModule(module.id)}
-                                            className="p-2 rounded-lg hover:bg-red-50 text-red-500"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Lessons List (Expanded) */}
-                                {expandedModule === module.id && (
-                                    <div className="border-t border-border p-5 space-y-3">
-                                        {lessons[module.id]?.length > 0 ? (
-                                            lessons[module.id].map((lesson) => (
-                                                <div
-                                                    key={lesson.id}
-                                                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <Video className="w-4 h-4 text-primary" />
-                                                        <div>
-                                                            <p className="font-medium">
-                                                                <span className="text-muted-foreground mr-2">{lesson.number}</span>
-                                                                {lesson.title}
-                                                            </p>
-                                                            <p className="text-xs text-muted-foreground">
-                                                                Duration: {lesson.duration}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => startEditLesson(module.id, lesson)}
-                                                            className="p-2 rounded hover:bg-white text-gray-500"
-                                                        >
-                                                            <Edit className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteLesson(module.id, lesson.id)}
-                                                            className="p-2 rounded hover:bg-red-50 text-red-500"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <p className="text-sm text-muted-foreground text-center py-4">
-                                                No lessons in this module yet.
-                                            </p>
-                                        )}
-                                        <button
-                                            onClick={() => setShowLessonForm(module.id)}
-                                            className="w-full py-3 border border-dashed border-primary/30 rounded-lg text-primary font-medium hover:bg-primary/5 flex items-center justify-center gap-2"
-                                        >
-                                            <Plus className="w-4 h-4" /> Add Lesson
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ))
-                    )}
+                    </div>
                 </div>
-            </main>
+            )}
         </div>
     );
 }

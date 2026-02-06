@@ -98,6 +98,7 @@ export interface UserData {
 // SEMESTERS
 // =============================================================================
 
+
 export async function getSemesters(): Promise<Semester[]> {
     const q = query(collection(db, "semesters"), orderBy("order", "asc"));
     const snapshot = await getDocs(q);
@@ -115,6 +116,21 @@ export async function getSemester(id: string): Promise<Semester | null> {
         id: snapshot.id,
         ...snapshot.data(),
     } as Semester;
+}
+
+export async function createSemester(data: Omit<Semester, "id">): Promise<string> {
+    const docRef = await addDoc(collection(db, "semesters"), data);
+    return docRef.id;
+}
+
+export async function updateSemester(id: string, data: Partial<Semester>): Promise<void> {
+    const docRef = doc(db, "semesters", id);
+    await updateDoc(docRef, data);
+}
+
+export async function deleteSemester(id: string): Promise<void> {
+    const docRef = doc(db, "semesters", id);
+    await deleteDoc(docRef);
 }
 
 // =============================================================================
@@ -155,6 +171,21 @@ export async function getBlock(id: string): Promise<Block | null> {
     } as Block;
 }
 
+export async function createBlock(data: Omit<Block, "id">): Promise<string> {
+    const docRef = await addDoc(collection(db, "blocks"), data);
+    return docRef.id;
+}
+
+export async function updateBlock(id: string, data: Partial<Block>): Promise<void> {
+    const docRef = doc(db, "blocks", id);
+    await updateDoc(docRef, data);
+}
+
+export async function deleteBlock(id: string): Promise<void> {
+    const docRef = doc(db, "blocks", id);
+    await deleteDoc(docRef);
+}
+
 // =============================================================================
 // WEEKS
 // =============================================================================
@@ -191,6 +222,21 @@ export async function getWeek(id: string): Promise<Week | null> {
         id: snapshot.id,
         ...snapshot.data(),
     } as Week;
+}
+
+export async function createWeek(data: Omit<Week, "id">): Promise<string> {
+    const docRef = await addDoc(collection(db, "weeks"), data);
+    return docRef.id;
+}
+
+export async function updateWeek(id: string, data: Partial<Week>): Promise<void> {
+    const docRef = doc(db, "weeks", id);
+    await updateDoc(docRef, data);
+}
+
+export async function deleteWeek(id: string): Promise<void> {
+    const docRef = doc(db, "weeks", id);
+    await deleteDoc(docRef);
 }
 
 // =============================================================================
