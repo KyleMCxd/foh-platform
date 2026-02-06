@@ -1,16 +1,41 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useModules } from "@/lib/hooks/useModules";
+import { useWeeks } from "@/lib/hooks/useWeeks";
+import { useLessons } from "@/lib/hooks/useLessons";
 import { useUserData } from "@/lib/hooks/useUserData";
-import { markLessonComplete, Lesson, Module, getLesson } from "@/lib/firestore";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Check, FileText, Download, ExternalLink, Lock } from "lucide-react";
+import {
+    getLesson,
+    markLessonComplete,
+    Lesson,
+    getSubmissionsForModule,
+    Submission,
+    createSubmission
+} from "@/lib/firestore";
+import { uploadHomework } from "@/lib/storage";
 import confetti from "canvas-confetti";
+import {
+    Play,
+    CheckCircle,
+    FileText,
+    Upload,
+    ChevronLeft,
+    MessageSquare,
+    Download,
+    Lock,
+    List,
+    Check,
+    Loader2,
+    File
+} from "lucide-react";
 
-// Declare Vimeo Player API types
+// Types
+type Tab = "INFO" | "HANDOUT" | "HOMEWORK";
+
 declare global {
     interface Window {
         Vimeo: any;
@@ -19,305 +44,375 @@ declare global {
 
 export default function WatchPage() {
     const params = useParams();
+    const router = useRouter();
     const lessonId = params.lessonId as string;
     const { user } = useAuth();
     const iframeRef = useRef<HTMLIFrameElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // State
     const [lesson, setLesson] = useState<Lesson | null>(null);
-    const [lessonLoading, setLessonLoading] = useState(true);
-    const [marking, setMarking] = useState(false);
+    const [activeTab, setActiveTab] = useState<Tab>("INFO");
     const [completed, setCompleted] = useState(false);
     const [videoWatched, setVideoWatched] = useState(false);
     const [videoProgress, setVideoProgress] = useState(0);
+    const [marking, setMarking] = useState(false);
 
-    // Fetch lesson details (Still a hit, but we can cache it)
+    // Submissions State
+    const [submissions, setSubmissions] = useState<Submission[]>([]);
+    const [uploading, setUploading] = useState(false);
+    const [uploadSuccess, setUploadSuccess] = useState(false);
+
+    // Hooks
+    const { modules } = useModules();
+    const { lessons: allLessons } = useLessons();
+    const { userData } = useUserData(user?.uid);
+
+    // Derived Data
+    const module = lesson ? modules.find(m => m.id === lesson.moduleId) : null;
+    const moduleLessons = lesson ? allLessons.filter(l => l.moduleId === lesson.moduleId).sort((a, b) => a.order - b.order) : [];
+    const progress = userData?.progress || {};
+
+    // Fetch Lesson Data
     useEffect(() => {
-        async function fetchLessonData() {
+        async function fetchLesson() {
+            if (!lessonId) return;
             try {
                 const data = await getLesson(lessonId);
                 setLesson(data);
+                if (data && progress[data.id]) {
+                    setCompleted(true);
+                    setVideoWatched(true);
+                }
             } catch (err) {
-                console.error("Fetch lesson error:", err);
-            } finally {
-                setLessonLoading(false);
+                console.error("Failed to fetch lesson", err);
             }
         }
-        fetchLessonData();
-    }, [lessonId]);
+        fetchLesson();
+    }, [lessonId, progress]); // Re-run if progress updates
 
-    // Use shared hooks for module and user data
-    const { modules, isLoading: modulesLoading } = useModules();
-    const { progress, isLoading: userLoading } = useUserData(user?.uid);
-
-    const module = lesson ? modules.find(m => m.id === lesson.moduleId) : null;
-    const loading = lessonLoading || modulesLoading || userLoading;
-
-    // Local completion state from progress
+    // Fetch Submissions (Only if tab is Homework)
     useEffect(() => {
-        if (lesson && progress[lesson.id]) {
-            setCompleted(true);
-            setVideoWatched(true); // If already completed, allow re-completion
+        if (activeTab === "HOMEWORK" && module && user) {
+            getSubmissionsForModule(module.id).then(subs => {
+                setSubmissions(subs.filter(s => s.userId === user.uid));
+            });
         }
-    }, [lesson, progress]);
+    }, [activeTab, module, user]);
 
-    // Vimeo Player API integration
+    // Vimeo Integration
     useEffect(() => {
-        if (!lesson?.vimeoId || !iframeRef.current) return;
+        if (!lesson?.vimeoId || !iframeRef.current || typeof window === 'undefined') return;
 
-        const iframe = iframeRef.current;
-        // @ts-ignore - Vimeo Player API
-        const player = new window.Vimeo.Player(iframe);
-
-        // Track video progress
-        player.on('timeupdate', (data: any) => {
-            const percentComplete = (data.percent * 100);
-            setVideoProgress(percentComplete);
-
-            // Unlock button when 95% watched
-            if (percentComplete >= 95 && !videoWatched) {
-                setVideoWatched(true);
-            }
-        });
-
-        player.on('ended', () => {
-            setVideoWatched(true);
-            setVideoProgress(100);
-        });
-
-        return () => {
-            player.off('timeupdate');
-            player.off('ended');
-        };
-    }, [lesson, videoWatched]);
-
-    // Load Vimeo Player API script
-    useEffect(() => {
-        if (typeof window !== 'undefined' && !window.Vimeo) {
+        // Load Vimeo Script if needed
+        if (!window.Vimeo) {
             const script = document.createElement('script');
             script.src = 'https://player.vimeo.com/api/player.js';
             script.async = true;
+            script.onload = initPlayer;
             document.body.appendChild(script);
+        } else {
+            initPlayer();
         }
-    }, []);
 
+        function initPlayer() {
+            if (!iframeRef.current) return;
+            // @ts-ignore
+            const player = new window.Vimeo.Player(iframeRef.current);
+            player.on('timeupdate', (data: any) => {
+                const pct = data.percent * 100;
+                setVideoProgress(pct);
+                if (pct >= 95) setVideoWatched(true);
+            });
+            player.on('ended', () => {
+                setVideoWatched(true);
+                setVideoProgress(100);
+            });
+        }
+    }, [lesson?.vimeoId]);
+
+    // Handlers
     const handleMarkComplete = async () => {
-        if (!user || !lesson || !videoWatched) return;
+        if (!user || !lesson) return;
         setMarking(true);
         try {
             await markLessonComplete(user.uid, lesson.id);
             setCompleted(true);
-
-            // Trigger celebration animation
-            const duration = 3000;
-            const animationEnd = Date.now() + duration;
-            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
-
-            function randomInRange(min: number, max: number) {
-                return Math.random() * (max - min) + min;
-            }
-
-            const interval: any = setInterval(function () {
-                const timeLeft = animationEnd - Date.now();
-
-                if (timeLeft <= 0) {
-                    return clearInterval(interval);
-                }
-
-                const particleCount = 50 * (timeLeft / duration);
-
-                confetti({
-                    ...defaults,
-                    particleCount,
-                    origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
-                });
-                confetti({
-                    ...defaults,
-                    particleCount,
-                    origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
-                });
-            }, 250);
-
-        } catch (error) {
-            console.error("Failed to mark complete:", error);
+            triggerConfetti();
+        } catch (e) {
+            console.error(e);
         } finally {
             setMarking(false);
         }
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-        );
-    }
+    const triggerConfetti = () => {
+        const duration = 2000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+        const interval: any = setInterval(function () {
+            const timeLeft = animationEnd - Date.now();
+            if (timeLeft <= 0) return clearInterval(interval);
+            const particleCount = 50 * (timeLeft / duration);
+            confetti({ ...defaults, particleCount, origin: { x: Math.random(), y: Math.random() - 0.2 } });
+        }, 250);
+    };
 
-    if (!lesson) {
-        return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center text-center">
-                <h1 className="text-2xl font-bold mb-4">Lesson Not Found</h1>
-                <Link href="/dashboard" className="text-primary hover:underline">
-                    Return to Dashboard
-                </Link>
-            </div>
-        );
-    }
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user || !module) return;
+
+        if (file.size > 10 * 1024 * 1024) return alert("File too large (max 10MB)");
+        if (file.type !== "application/pdf") return alert("Only PDF allowed");
+
+        setUploading(true);
+        try {
+            const url = await uploadHomework(file, user.uid, module.id);
+            await createSubmission({
+                moduleId: module.id,
+                userId: user.uid,
+                userEmail: user.email || "",
+                fileName: file.name,
+                fileUrl: url,
+                status: "pending"
+            });
+
+            // Notify API
+            fetch("/api/notify-homework", {
+                method: "POST",
+                body: JSON.stringify({
+                    studentEmail: user.email,
+                    moduleTitle: module.title,
+                    fileName: file.name,
+                    submittedAt: new Date().toISOString()
+                })
+            }).catch(console.warn);
+
+            const updated = await getSubmissionsForModule(module.id);
+            setSubmissions(updated.filter(s => s.userId === user.uid));
+            setUploadSuccess(true);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        } catch (err) {
+            alert("Upload failed");
+            console.error(err);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    if (!lesson) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
-            {/* LEFT: Video + Info */}
-            <div className="flex-1 flex flex-col">
-                {/* Top Bar */}
-                <header className="bg-white border-b border-border px-6 py-4 flex items-center justify-between">
-                    <Link
-                        href={module ? `/module/${module.id}` : "/dashboard"}
-                        className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        <span className="text-sm font-medium">
-                            {module?.title || "Back"}
-                        </span>
-                    </Link>
-                </header>
+        <div className="min-h-screen bg-black text-white flex flex-col lg:flex-row overflow-hidden">
 
-                {/* Video Player */}
-                <div className="bg-black aspect-video w-full relative">
+            {/* LEFT SIDEBAR - PLAYLIST */}
+            <aside className="w-full lg:w-80 bg-zinc-900 border-r border-zinc-800 flex flex-col h-[40vh] lg:h-screen overflow-hidden shrink-0">
+                <div className="p-4 border-b border-zinc-800">
+                    <Link href="/curriculum" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-4 text-sm">
+                        <ChevronLeft className="w-4 h-4" /> Back to Curriculum
+                    </Link>
+                    <h2 className="font-bold text-lg text-white mb-1 line-clamp-1">{module?.title}</h2>
+                    <p className="text-xs text-zinc-500">{moduleLessons.length} lessons</p>
+                </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    {moduleLessons.map((l) => {
+                        const isCurrent = l.id === lesson.id;
+                        const isDone = progress[l.id];
+                        return (
+                            <Link
+                                key={l.id}
+                                href={`/watch/${l.id}`}
+                                className={`flex items-start gap-3 p-4 border-b border-zinc-800/50 hover:bg-zinc-800 transition-colors ${isCurrent ? "bg-zinc-800/80 border-l-2 border-l-primary" : ""}`}
+                            >
+                                <div className="mt-0.5">
+                                    {isCurrent ? (
+                                        <Play className="w-4 h-4 text-primary fill-primary" />
+                                    ) : isDone ? (
+                                        <CheckCircle className="w-4 h-4 text-green-500" />
+                                    ) : (
+                                        <div className="w-4 h-4 rounded-full border border-zinc-600" />
+                                    )}
+                                </div>
+                                <div>
+                                    <h4 className={`text-sm font-medium ${isCurrent ? "text-white" : "text-zinc-400"}`}>{l.title}</h4>
+                                    <span className="text-xs text-zinc-600">{l.duration}</span>
+                                </div>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </aside>
+
+            {/* MAIN CONTENT */}
+            <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-zinc-950">
+
+                {/* VIDEO PLAYER */}
+                <div className="w-full aspect-video bg-black relative shrink-0">
                     {lesson.vimeoId ? (
                         <iframe
                             ref={iframeRef}
-                            src={`https://player.vimeo.com/video/${lesson.vimeoId}?color=00FFFF&title=0&byline=0&portrait=0`}
+                            src={`https://player.vimeo.com/video/${lesson.vimeoId}?color=00F0FF&title=0&byline=0&portrait=0`}
                             className="absolute inset-0 w-full h-full"
                             allow="autoplay; fullscreen; picture-in-picture"
                             allowFullScreen
                         />
                     ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-white/50">
-                            <p>No video configured. Add Vimeo ID in Admin.</p>
+                        <div className="absolute inset-0 flex items-center justify-center text-zinc-600">
+                            Video unavailable
                         </div>
                     )}
                 </div>
 
-                {/* Lesson Info */}
-                <div className="bg-white p-6 border-b border-border">
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <h1 className="text-2xl font-bold mb-1">
-                                <span className="text-primary mr-2">{lesson.number}</span>
-                                {lesson.title}
-                            </h1>
-                            <p className="text-muted-foreground">
-                                {module?.title} • {lesson.duration || "—"}
-                            </p>
-                        </div>
-                        <div className="relative group">
-                            <button
-                                onClick={handleMarkComplete}
-                                disabled={marking || completed || !videoWatched}
-                                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${completed
-                                    ? "bg-green-100 text-green-700"
-                                    : !videoWatched
-                                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                                        : "bg-brand-gradient text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95"
-                                    }`}
-                            >
-                                {!videoWatched && !completed ? <Lock className="w-5 h-5" /> : <Check className="w-5 h-5" />}
-                                {completed ? "Voltooid!" : marking ? "Opslaan..." : "Voltooien"}
-                            </button>
-                            {!videoWatched && !completed && (
-                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                    <div className="bg-gray-900 text-white text-sm px-3 py-2 rounded-lg whitespace-nowrap">
-                                        Bekijk eerst de video volledig ({Math.round(videoProgress)}%)
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                {/* TABS NAVIGATION */}
+                <div className="flex items-center border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
+                    {[
+                        { id: "INFO", label: "Overview", icon: FileText },
+                        { id: "HANDOUT", label: "Handout", icon: Download },
+                        { id: "HOMEWORK", label: "Huiswerk", icon: Upload },
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as Tab)}
+                            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
+                                ? "border-primary text-primary bg-zinc-800/50"
+                                : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-800"
+                                }`}
+                        >
+                            <tab.icon className="w-4 h-4" />
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* TAB CONTENT */}
+                <div className="flex-1 p-6 lg:p-10 max-w-4xl">
+
+                    {/* INFO TAB */}
+                    {activeTab === "INFO" && (
+                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div>
+                                <h1 className="text-3xl font-bold text-white mb-2">
+                                    <span className="text-primary mr-3">{lesson.number}</span>
+                                    {lesson.title}
+                                </h1>
+                                <p className="text-zinc-400 leading-relaxed text-lg">
+                                    {module?.description}
+                                </p>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={handleMarkComplete}
+                                    disabled={marking || completed || !videoWatched}
+                                    className={`flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-lg transition-all transform active:scale-95 ${completed ? "bg-green-500/10 text-green-500 border border-green-500/20"
+                                        : !videoWatched ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                                            : "bg-brand-gradient text-white shadow-lg shadow-primary/20 hover:opacity-90"
+                                        }`}
+                                >
+                                    {completed ? <Check className="w-6 h-6" /> : !videoWatched ? <Lock className="w-5 h-5" /> : <CheckCircle className="w-6 h-6" />}
+                                    {completed ? "Les Voltooid" : "Markeer als Voltooid"}
+                                </button>
+
+                                {!videoWatched && !completed && (
+                                    <span className="text-sm text-zinc-500">
+                                        Watch video to unlock ({Math.round(videoProgress)}%)
+                                    </span>
+                                )}
+                            </div>
+
+                            {lesson.resources && lesson.resources.length > 0 && (
+                                <div className="pt-8 border-t border-zinc-800">
+                                    <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-4">Resources</h3>
+                                    <div className="flex flex-wrap gap-4">
+                                        {lesson.resources.map((r, i) => (
+                                            <a key={i} href={r.url} target="_blank" className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-primary/50 hover:text-primary transition-colors">
+                                                <Download className="w-4 h-4" />
+                                                {r.name}
+                                            </a>
+                                        ))}
                                     </div>
                                 </div>
                             )}
                         </div>
-                    </div>
-                </div>
-
-                {/* Mobile: Show PDF link */}
-                <div className="p-6 lg:hidden">
-                    {lesson.handoutPdfUrl ? (
-                        <a
-                            href={lesson.handoutPdfUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-2 w-full py-4 bg-white border border-border rounded-xl font-medium text-primary hover:bg-primary/5"
-                        >
-                            <FileText className="w-5 h-5" />
-                            Bekijk Handout PDF
-                            <ExternalLink className="w-4 h-4" />
-                        </a>
-                    ) : (
-                        <p className="text-center text-muted-foreground">
-                            Geen handout beschikbaar.
-                        </p>
                     )}
-                </div>
-            </div>
 
-            {/* RIGHT: PDF Viewer Panel (Desktop Only) */}
-            <div className="hidden lg:flex lg:w-[350px] xl:w-[450px] bg-white border-l border-border flex-col transition-all duration-300">
-                <div className="p-4 border-b border-border flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-secondary" />
-                        <h3 className="font-bold text-sm tracking-wider uppercase">
-                            Handout
-                        </h3>
-                    </div>
-                    {lesson.handoutPdfUrl && (
-                        <a
-                            href={lesson.handoutPdfUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-sm text-primary hover:underline"
-                        >
-                            <Download className="w-4 h-4" />
-                            Download
-                        </a>
-                    )}
-                </div>
-
-                <div className="flex-1 overflow-hidden bg-gray-50/50">
-                    {lesson.handoutPdfUrl ? (
-                        <iframe
-                            src={`${lesson.handoutPdfUrl}#toolbar=0`}
-                            className="w-full h-full border-0"
-                            title="Lesson Handout PDF"
-                        />
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                            <FileText className="w-12 h-12 text-gray-200 mb-4" />
-                            <p className="text-muted-foreground">
-                                Geen handout beschikbaar.
-                            </p>
+                    {/* HANDOUT TAB */}
+                    {activeTab === "HANDOUT" && (
+                        <div className="h-[600px] bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+                            {lesson.handoutPdfUrl ? (
+                                <iframe src={`${lesson.handoutPdfUrl}#toolbar=0`} className="w-full h-full border-0" />
+                            ) : (
+                                <div className="h-full flex flex-col items-center justify-center text-zinc-500">
+                                    <FileText className="w-12 h-12 mb-4 opacity-20" />
+                                    <p>No handout available for this lesson.</p>
+                                </div>
+                            )}
                         </div>
                     )}
-                </div>
 
-                {/* Resources */}
-                {lesson.resources && lesson.resources.length > 0 && (
-                    <div className="p-4 border-t border-border bg-white">
-                        <h4 className="text-xs font-bold text-muted-foreground uppercase mb-3">
-                            Extra Downloads
-                        </h4>
-                        <div className="space-y-2">
-                            {lesson.resources.map((resource, i) => (
-                                <a
-                                    key={i}
-                                    href={resource.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 text-sm text-primary hover:underline"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    {resource.name}
-                                </a>
-                            ))}
+                    {/* HOMEWORK TAB */}
+                    {activeTab === "HOMEWORK" && (
+                        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 mb-8">
+                                <h3 className="text-xl font-bold text-white mb-2">Submit Homework</h3>
+                                <p className="text-zinc-400 mb-6">Upload your work for: <span className="text-primary">{module?.title}</span></p>
+
+                                <label className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${uploading ? "border-zinc-700 bg-zinc-800/50" : "border-zinc-700 hover:border-primary/50 hover:bg-zinc-800"}`}>
+                                    {uploading ? (
+                                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                    ) : (
+                                        <>
+                                            <Upload className="w-8 h-8 text-zinc-500 mb-2" />
+                                            <span className="text-sm font-medium text-zinc-300">Click to upload PDF</span>
+                                            <span className="text-xs text-zinc-500 mt-1">Max 10MB</span>
+                                        </>
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="application/pdf"
+                                        className="hidden"
+                                        onChange={handleFileUpload}
+                                        disabled={uploading}
+                                        ref={fileInputRef}
+                                    />
+                                </label>
+                                {uploadSuccess && <p className="text-green-500 text-sm mt-4 text-center font-medium">Upload successful!</p>}
+                            </div>
+
+                            <div className="space-y-4">
+                                <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Your Submissions</h4>
+                                {submissions.length === 0 ? (
+                                    <p className="text-zinc-500 italic">No submissions yet.</p>
+                                ) : (
+                                    submissions.map(sub => (
+                                        <div key={sub.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center">
+                                                    <File className="w-5 h-5 text-zinc-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-white">{sub.fileName}</p>
+                                                    <p className="text-xs text-zinc-500">{new Date(sub.submittedAt).toLocaleDateString()}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${sub.grade === "pass" ? "bg-green-500/10 text-green-500" :
+                                                    sub.grade === "fail" ? "bg-red-500/10 text-red-500" :
+                                                        "bg-orange-500/10 text-orange-500"
+                                                    }`}>
+                                                    {sub.grade === "pass" ? "Passed" : sub.grade === "fail" ? "Failed" : "Pending"}
+                                                </span>
+                                                <a href={sub.fileUrl} target="_blank" className="p-2 bg-zinc-800 rounded-lg hover:text-primary transition-colors"><Download className="w-4 h-4" /></a>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+
+                </div>
+            </main>
         </div>
     );
 }

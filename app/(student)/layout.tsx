@@ -114,18 +114,6 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
                     <span>Mijn Curriculum</span>
                 </Link>
 
-                {/* Workbook Link */}
-                <Link
-                    href="/workbook"
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-colors ${pathname === "/workbook"
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-muted-foreground hover:bg-gray-50 hover:text-foreground"
-                        }`}
-                >
-                    <BookOpen className="w-5 h-5" />
-                    <span>Mijn Werkboek</span>
-                </Link>
-
                 {/* Booking Link (LIVE DAYS) */}
                 <Link
                     href="/booking"
