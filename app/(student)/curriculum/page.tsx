@@ -13,7 +13,8 @@ import {
     ArrowLeft,
     Layers,
     Box,
-    PlayCircle
+    PlayCircle,
+    Flashlight
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -67,8 +68,8 @@ export default function CurriculumPage() {
     const getIcon = (type: string, title: string) => {
         const t = title.toLowerCase();
         if (type === "semester") {
-            if (t.includes("audio") || t.includes("sound")) return <Mic2 className="w-8 h-8" />;
-            if (t.includes("light") || t.includes("licht")) return <Lightbulb className="w-8 h-8" />;
+            if (t.includes("audio") || t.includes("sound") || t.includes("geluid")) return <Mic2 className="w-8 h-8" />;
+            if (t.includes("light") || t.includes("licht")) return <Flashlight className="w-8 h-8" />;
             return <GraduationCap className="w-8 h-8" />;
         }
         if (type === "block") return <Layers className="w-6 h-6" />;
@@ -155,8 +156,8 @@ export default function CurriculumPage() {
                                 </div>
                                 <div className="flex items-start gap-6">
                                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform ${semester.title.toLowerCase().includes("audio")
-                                            ? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white"
-                                            : "bg-gradient-to-br from-cyan-400 to-blue-500 text-white"
+                                        ? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white"
+                                        : "bg-gradient-to-br from-cyan-400 to-blue-500 text-white"
                                         }`}>
                                         {getIcon("semester", semester.title)}
                                     </div>
