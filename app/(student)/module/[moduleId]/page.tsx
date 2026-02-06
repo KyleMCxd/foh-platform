@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useModules } from "@/lib/hooks/useModules";
+import { useWeeks } from "@/lib/hooks/useWeeks";
 import { useLessons } from "@/lib/hooks/useLessons";
 import { useUserData } from "@/lib/hooks/useUserData";
 import {
@@ -22,6 +23,9 @@ import {
     Check,
     Loader2,
     File,
+    Calendar,
+    ChevronRight,
+    ChevronDown,
 } from "lucide-react";
 
 export default function ModulePage() {
@@ -32,8 +36,12 @@ export default function ModulePage() {
 
     // SWR hooks for parallel, cached fetching
     const { modules, isLoading: modulesLoading } = useModules();
-    const { lessons, isLoading: lessonsLoading } = useLessons(moduleId);
-    const { progress, isLoading: userLoading } = useUserData(user?.uid);
+    const { weeks, loading: weeksLoading } = useWeeks();
+    const { lessons, isLoading: lessonsLoading } = useLessons();
+    const { userData, isLoading: userLoading } = useUserData(user?.uid ?? undefined);
+
+    // State for expanded weeks
+    const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({});
 
     // Submissions still local for now as it's more specific
     const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -42,7 +50,17 @@ export default function ModulePage() {
     const [uploadSuccess, setUploadSuccess] = useState(false);
 
     const module = modules.find(m => m.id === moduleId);
-    const loading = modulesLoading || lessonsLoading || userLoading || subsLoading;
+    const moduleWeeks = weeks.filter(w => w.moduleId === moduleId).sort((a, b) => a.order - b.order);
+    const moduleLessons = lessons.filter(l => l.moduleId === moduleId);
+    const progress = userData?.progress || {};
+    const loading = modulesLoading || weeksLoading || lessonsLoading || userLoading || subsLoading;
+
+    // Auto-expand first week
+    useEffect(() => {
+        if (moduleWeeks.length > 0 && Object.keys(expandedWeeks).length === 0) {
+            setExpandedWeeks({ [moduleWeeks[0].id]: true });
+        }
+    }, [moduleWeeks]);
 
     useEffect(() => {
         async function fetchSubmissions() {
@@ -64,6 +82,13 @@ export default function ModulePage() {
         fetchSubmissions();
     }, [moduleId, user]);
 
+    const toggleWeek = (weekId: string) => {
+        setExpandedWeeks(prev => ({
+            ...prev,
+            [weekId]: !prev[weekId]
+        }));
+    };
+
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !user || !module) return;
@@ -84,11 +109,8 @@ export default function ModulePage() {
         setUploadSuccess(false);
 
         try {
-            // Upload to Firebase Storage (we keep using weekId param name in storage fn if not refactored yet, or update it)
-            // Assuming uploadHomework helper takes a generic id, we can pass moduleId
             const fileUrl = await uploadHomework(file, user.uid, moduleId);
 
-            // Create submission record
             await createSubmission({
                 moduleId,
                 userId: user.uid,
@@ -119,7 +141,6 @@ export default function ModulePage() {
             setSubmissions(updatedSubmissions.filter((s) => s.userId === user.uid));
             setUploadSuccess(true);
 
-            // Reset file input
             if (fileInputRef.current) {
                 fileInputRef.current.value = "";
             }
@@ -133,7 +154,7 @@ export default function ModulePage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30 flex items-center justify-center">
                 <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
         );
@@ -141,37 +162,42 @@ export default function ModulePage() {
 
     if (!module) {
         return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center text-center">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30 flex flex-col items-center justify-center text-center">
                 <h1 className="text-2xl font-bold mb-4">Module Not Found</h1>
-                <Link href="/dashboard" className="text-primary hover:underline">
-                    Return to Dashboard
+                <Link href="/curriculum" className="text-primary hover:underline">
+                    Return to Curriculum
                 </Link>
             </div>
         );
     }
 
+    // Calculate module progress
+    const completedLessons = moduleLessons.filter(l => progress[l.id]).length;
+    const totalLessons = moduleLessons.length;
+    const progressPercentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30">
             {/* Header */}
-            <header className="bg-white border-b border-border sticky top-0 z-40">
+            <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
                 <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
                     <Link
-                        href="/dashboard"
+                        href="/curriculum"
                         className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
                     >
                         <ArrowLeft className="w-4 h-4" />
-                        <span className="text-sm font-medium">Back to Dashboard</span>
+                        <span className="text-sm font-medium">Back to Curriculum</span>
                     </Link>
                     <div className="text-sm text-muted-foreground">
-                        {lessons.length} lessons
+                        {moduleWeeks.length} weeks • {totalLessons} lessons
                     </div>
                 </div>
             </header>
 
             <main className="max-w-5xl mx-auto px-6 py-12">
                 {/* Module Header */}
-                <div className="mb-12">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-secondary/10 text-secondary rounded-full text-xs font-bold uppercase tracking-wider mb-4">
+                <div className="mb-8">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold uppercase tracking-wider mb-4">
                         Module {module.order}
                     </div>
                     <h1 className="text-4xl font-extrabold tracking-tight mb-2">
@@ -182,47 +208,107 @@ export default function ModulePage() {
                     </p>
                 </div>
 
-                {/* Lessons Grid */}
+                {/* Progress Bar */}
+                <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-medium text-gray-700">Module Progress</span>
+                        <span className="text-sm text-muted-foreground">
+                            {completedLessons}/{totalLessons} lessons ({progressPercentage}%)
+                        </span>
+                    </div>
+                    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500"
+                            style={{ width: `${progressPercentage}%` }}
+                        />
+                    </div>
+                </div>
+
+                {/* Weeks with Lessons */}
                 <div className="space-y-4 mb-16">
-                    <h2 className="text-xl font-bold mb-4">Lessons</h2>
-                    {lessons.length === 0 ? (
-                        <div className="text-center py-12 bg-white border border-dashed border-border rounded-2xl">
+                    <h2 className="text-xl font-bold mb-4">Weeks & Lessons</h2>
+
+                    {moduleWeeks.length === 0 ? (
+                        <div className="text-center py-12 bg-white border border-dashed border-gray-200 rounded-2xl">
                             <p className="text-muted-foreground">
-                                No lessons in this module yet.
+                                No weeks in this module yet.
                             </p>
                         </div>
                     ) : (
-                        lessons.map((lesson, index) => (
-                            <Link
-                                key={lesson.id}
-                                href={`/watch/${lesson.id}`}
-                                className="group flex items-center gap-6 p-6 bg-white border border-border rounded-2xl hover:shadow-lg hover:border-primary/20 transition-all"
-                            >
-                                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center font-bold text-lg text-primary group-hover:scale-110 transition-transform">
-                                    {lesson.number}
-                                </div>
-                                <div className="flex-1">
-                                    <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
-                                        {lesson.title}
-                                    </h3>
-                                    <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                                        <span className="flex items-center gap-1">
-                                            <Clock className="w-4 h-4" />
-                                            {lesson.duration || "—"}
-                                        </span>
-                                        {lesson.handoutMarkdown && (
-                                            <span className="flex items-center gap-1">
-                                                <FileText className="w-4 h-4" />
-                                                Notes included
-                                            </span>
+                        moduleWeeks.map((week) => {
+                            const weekLessons = moduleLessons.filter(l => l.weekId === week.id).sort((a, b) => a.order - b.order);
+                            const weekCompleted = weekLessons.filter(l => progress[l.id]).length;
+                            const isExpanded = expandedWeeks[week.id];
+
+                            return (
+                                <div key={week.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                    {/* Week Header */}
+                                    <button
+                                        onClick={() => toggleWeek(week.id)}
+                                        className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
+                                            <Calendar className="w-5 h-5 text-secondary" />
+                                        </div>
+                                        <div className="flex-1 text-left">
+                                            <h3 className="font-semibold text-gray-900">{week.title}</h3>
+                                            <p className="text-sm text-muted-foreground">
+                                                {weekLessons.length} lessons • {weekCompleted} completed
+                                            </p>
+                                        </div>
+                                        {isExpanded ? (
+                                            <ChevronDown className="w-5 h-5 text-gray-400" />
+                                        ) : (
+                                            <ChevronRight className="w-5 h-5 text-gray-400" />
                                         )}
-                                    </div>
+                                    </button>
+
+                                    {/* Lessons */}
+                                    {isExpanded && weekLessons.length > 0 && (
+                                        <div className="border-t border-gray-100 divide-y divide-gray-100">
+                                            {weekLessons.map((lesson) => {
+                                                const isCompleted = progress[lesson.id];
+                                                return (
+                                                    <Link
+                                                        key={lesson.id}
+                                                        href={`/watch/${lesson.id}`}
+                                                        className="flex items-center gap-4 p-4 pl-16 hover:bg-gray-50 transition-colors group"
+                                                    >
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium ${isCompleted
+                                                                ? "bg-green-100 text-green-600"
+                                                                : "bg-primary/10 text-primary"
+                                                            }`}>
+                                                            {isCompleted ? <Check className="w-4 h-4" /> : lesson.number}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <h4 className={`font-medium group-hover:text-primary transition-colors ${isCompleted ? "text-gray-500" : "text-gray-900"
+                                                                }`}>
+                                                                {lesson.title}
+                                                            </h4>
+                                                            <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                                                                {lesson.duration && (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Clock className="w-3 h-3" />
+                                                                        {lesson.duration}
+                                                                    </span>
+                                                                )}
+                                                                {lesson.handoutPdfUrl && (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <FileText className="w-3 h-3" />
+                                                                        PDF
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <Play className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors" />
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="w-12 h-12 rounded-full bg-brand-gradient flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
-                                    <Play className="w-5 h-5 fill-current" />
-                                </div>
-                            </Link>
-                        ))
+                            );
+                        })
                     )}
                 </div>
 
