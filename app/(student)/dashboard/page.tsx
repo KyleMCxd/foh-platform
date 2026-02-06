@@ -2,76 +2,60 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSemesters } from "@/lib/hooks/useSemesters";
+import { useBlocks } from "@/lib/hooks/useBlocks";
 import { useModules } from "@/lib/hooks/useModules";
+import { useWeeks } from "@/lib/hooks/useWeeks";
+import { useLessons } from "@/lib/hooks/useLessons";
 import { useUserData } from "@/lib/hooks/useUserData";
-import { getLessonsForModule, Lesson } from "@/lib/firestore";
+import { Lesson } from "@/lib/firestore";
 import { useAuth } from "@/lib/auth";
-import { Play, Check, Lock, BookOpen, Clock } from "lucide-react";
+import { Play, Check, Lock, BookOpen, Clock, GraduationCap, Award } from "lucide-react";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+
+  // Fetch all hierarchy data
+  const { semesters, loading: semestersLoading } = useSemesters();
+  const { blocks, loading: blocksLoading } = useBlocks();
   const { modules, isLoading: modulesLoading } = useModules();
+  const { weeks, loading: weeksLoading } = useWeeks();
+  const { lessons, isLoading: lessonsLoading } = useLessons();
   const { progress, isLoading: progressLoading } = useUserData(user?.uid);
-  const [moduleLessons, setModuleLessons] = useState<Record<string, Lesson[]>>({});
-  const [lessonsLoading, setLessonsLoading] = useState(true);
 
-  // Fetch lessons for all modules to calculate completion
-  useEffect(() => {
-    async function fetchAllLessons() {
-      if (modules.length === 0) {
-        setLessonsLoading(false);
-        return;
-      }
 
-      const lessonsMap: Record<string, Lesson[]> = {};
-      for (const module of modules) {
-        try {
-          const lessons = await getLessonsForModule(module.id);
-          lessonsMap[module.id] = lessons;
-        } catch (error) {
-          console.error(`Failed to fetch lessons for module ${module.id}:`, error);
-          lessonsMap[module.id] = [];
-        }
-      }
-      setModuleLessons(lessonsMap);
-      setLessonsLoading(false);
-    }
+  const loading = semestersLoading || blocksLoading || modulesLoading || weeksLoading || lessonsLoading || progressLoading;
 
-    fetchAllLessons();
-  }, [modules]);
+  // Calculate total progress
+  const totalLessons = lessons.length;
+  const completedLessons = lessons.filter(l => progress?.[l.id]).length;
+  const progressPercentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
-  // Calculate if a module is complete (all lessons completed)
-  const isModuleComplete = (moduleId: string): boolean => {
-    const lessons = moduleLessons[moduleId] || [];
-    if (lessons.length === 0) return false;
-    return lessons.every(lesson => progress[lesson.id] === true);
+  // Calculate semester progress
+  const getSemesterProgress = (semesterId: string) => {
+    const semesterLessons = lessons.filter(l => l.semesterId === semesterId);
+    const completed = semesterLessons.filter(l => progress?.[l.id]).length;
+    return {
+      total: semesterLessons.length,
+      completed,
+      percentage: semesterLessons.length > 0 ? Math.round((completed / semesterLessons.length) * 100) : 0
+    };
   };
 
-  // Calculate module status
-  const getModuleStatus = (moduleId: string, index: number): "completed" | "current" | "locked" => {
-    if (isModuleComplete(moduleId)) return "completed";
+  // Find next lesson to continue
+  const getNextLesson = () => {
+    // Find first uncompleted lesson
+    const sortedLessons = [...lessons].sort((a, b) => {
+      // Sort by week number
+      const weekA = weeks.find(w => w.id === a.weekId);
+      const weekB = weeks.find(w => w.id === b.weekId);
+      return (weekA?.weekNumber || 0) - (weekB?.weekNumber || 0);
+    });
 
-    // Check if at least one lesson in this module is started
-    const lessons = moduleLessons[moduleId] || [];
-    const hasProgress = lessons.some(lesson => progress[lesson.id] === true);
-    if (hasProgress) return "current";
-
-    // Check if previous module is complete
-    if (index === 0) return "current"; // First module is always available
-    const prevModule = modules[index - 1];
-    if (prevModule && isModuleComplete(prevModule.id)) return "current";
-
-    return "locked";
+    return sortedLessons.find(l => !progress?.[l.id]);
   };
 
-  // Calculate total completed modules
-  const completedCount = modules.filter(m => isModuleComplete(m.id)).length;
-
-  // Find first incomplete module for "Continue Learning"
-  const currentModuleIndex = modules.findIndex(m => !isModuleComplete(m.id));
-  const currentModule = currentModuleIndex >= 0 ? modules[currentModuleIndex] : modules[modules.length - 1];
-
-  const loading = modulesLoading || progressLoading || lessonsLoading;
+  const nextLesson = getNextLesson();
 
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -83,27 +67,29 @@ export default function DashboardPage() {
               Welcome back{user?.email ? `, ${user.email.split("@")[0]}` : ""}! 👋
             </h1>
             <p className="text-muted-foreground text-lg">
-              {modules.length > 0
-                ? `Je hebt ${completedCount} van de ${modules.length} modules afgerond. Blijf zo doorgaan!`
+              {totalLessons > 0
+                ? `Je hebt ${completedLessons} van de ${totalLessons} lessen afgerond. Blijf zo doorgaan!`
                 : "Je curriculum wordt voorbereid. Check later weer!"}
             </p>
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-3 gap-4 mt-8 max-w-2xl">
-            <div className="bg-green-50 rounded-xl p-4 border border-green-100">
-              <div className="text-2xl font-bold text-green-600">{completedCount}</div>
-              <div className="text-sm text-green-700">Modules compleet</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 max-w-4xl">
+            <div className="bg-gradient-to-br from-green-50 to-green-100/50 rounded-xl p-4 border border-green-200">
+              <div className="text-2xl font-bold text-green-700">{completedLessons}</div>
+              <div className="text-sm text-green-600 font-medium">Lessen compleet</div>
             </div>
-            <div className="bg-cyan-50 rounded-xl p-4 border border-cyan-100">
-              <div className="text-2xl font-bold text-cyan-600">{modules.length > 0 ? modules.length - completedCount : 0}</div>
-              <div className="text-sm text-cyan-700">Modules te gaan</div>
+            <div className="bg-gradient-to-br from-cyan-50 to-cyan-100/50 rounded-xl p-4 border border-cyan-200">
+              <div className="text-2xl font-bold text-cyan-700">{totalLessons - completedLessons}</div>
+              <div className="text-sm text-cyan-600 font-medium">Lessen te gaan</div>
             </div>
-            <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
-              <div className="text-2xl font-bold text-purple-600">
-                {modules.length > 0 ? Math.round((completedCount / modules.length) * 100) : 0}%
-              </div>
-              <div className="text-sm text-purple-700">Voortgang</div>
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl p-4 border border-purple-200">
+              <div className="text-2xl font-bold text-purple-700">{progressPercentage}%</div>
+              <div className="text-sm text-purple-600 font-medium">Totaal voortgang</div>
+            </div>
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-xl p-4 border border-orange-200">
+              <div className="text-2xl font-bold text-orange-700">{weeks.length}</div>
+              <div className="text-sm text-orange-600 font-medium">Weken curriculum</div>
             </div>
           </div>
         </div>
@@ -112,11 +98,14 @@ export default function DashboardPage() {
       <div className="p-8">
         <div className="max-w-7xl mx-auto space-y-12">
           {/* Continue Learning */}
-          {modules.length > 0 && currentModule && (
+          {nextLesson && (
             <section>
-              <h2 className="text-xl font-bold mb-4">Ga verder met leren</h2>
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Play className="w-5 h-5 text-primary" />
+                Ga verder met leren
+              </h2>
               <Link
-                href={`/module/${currentModule.id}`}
+                href={`/watch/${nextLesson.id}`}
                 className="block md:w-fit min-w-[400px] bg-white rounded-2xl border border-border p-6 hover:shadow-lg hover:border-primary/20 transition-all group"
               >
                 <div className="flex items-center justify-between gap-8">
@@ -126,89 +115,61 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-                        Module {currentModule.order}
+                        {nextLesson.number}
                       </p>
                       <h3 className="font-bold text-lg">
-                        {currentModule.title}
+                        {nextLesson.title}
                       </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {nextLesson.duration}
+                      </p>
                     </div>
                   </div>
                   <div className="text-primary font-medium group-hover:translate-x-1 transition-transform whitespace-nowrap">
-                    Doorgaan →
+                    Start →
                   </div>
                 </div>
               </Link>
             </section>
           )}
 
-          {/* All Modules Grid */}
-          <section>
-            <h2 className="text-xl font-bold mb-4">Alle Modules</h2>
-
-            {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : modules.length === 0 ? (
-              <div className="text-center py-16 bg-white border border-dashed border-border rounded-2xl">
-                <BookOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground mb-4">
-                  Nog geen curriculum content.
-                </p>
-                <Link
-                  href="/admin"
-                  className="text-primary font-medium hover:underline"
-                >
-                  Ga naar Admin Panel →
-                </Link>
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {modules.map((module, index) => {
-                  const status = getModuleStatus(module.id, index);
+          {/* Semester Overview */}
+          {semesters.length > 0 && (
+            <section>
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-primary" />
+                Je Voortgang per Semester
+              </h2>
+              <div className="grid gap-6">
+                {semesters.map((semester) => {
+                  const semProgress = getSemesterProgress(semester.id);
                   return (
-                    <Link
-                      key={module.id}
-                      href={`/module/${module.id}`}
-                      className={`block p-5 rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${status === "current"
-                          ? "bg-white border-secondary shadow-md scale-[1.02]"
-                          : status === "completed"
-                            ? "bg-white border-border hover:border-primary/30"
-                            : "bg-gray-50 border-transparent opacity-60 hover:opacity-100"
-                        }`}
-                    >
+                    <div key={semester.id} className="bg-white rounded-2xl border border-border p-6 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-4">
-                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Module {module.order}
-                        </span>
-                        {status === "completed" && (
-                          <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          </div>
-                        )}
-                        {status === "locked" && (
-                          <Lock className="w-4 h-4 text-gray-300" />
-                        )}
-                        {status === "current" && (
-                          <span className="text-xs font-bold text-secondary bg-secondary/10 px-2 py-1 rounded-full">
-                            Huidig
-                          </span>
-                        )}
+                        <div>
+                          <h3 className="font-bold text-lg">{semester.title}</h3>
+                          {semester.description && (
+                            <p className="text-sm text-muted-foreground mt-1">{semester.description}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-primary">{semProgress.percentage}%</div>
+                          <div className="text-xs text-muted-foreground">{semProgress.completed}/{semProgress.total} lessen</div>
+                        </div>
                       </div>
-                      <h3 className="font-bold text-lg mb-2">
-                        {module.title.includes(":")
-                          ? module.title.split(": ")[1]
-                          : module.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {module.description}
-                      </p>
-                    </Link>
+                      {/* Progress Bar */}
+                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500"
+                          style={{ width: `${semProgress.percentage}%` }}
+                        />
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-            )}
-          </section>
+            </section>
+          )}
         </div>
       </div>
     </div>

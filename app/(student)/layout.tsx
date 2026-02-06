@@ -3,17 +3,16 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useModules } from "@/lib/hooks/useModules";
 import { useUserData } from "@/lib/hooks/useUserData";
+import { useLessons } from "@/lib/hooks/useLessons";
 import { useAuth } from "@/lib/auth";
 import {
     BookOpen,
-    ChevronRight,
     Settings,
     LogOut,
-    Check,
-    Play,
     Home,
+    Calendar,
+    GraduationCap,
 } from "lucide-react";
 
 import AuthGuard from "@/components/auth/AuthGuard";
@@ -35,11 +34,14 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
     const pathname = usePathname();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    // SWR hooks - data is cached and shared across components
-    const { modules, isLoading: modulesLoading } = useModules();
-    const { progress, isLoading: userLoading } = useUserData(user?.uid);
+    // Fetch lessons for active state detection
+    const { lessons, isLoading: lessonsLoading } = useLessons();
+    const { userData, isLoading: userLoading } = useUserData(user?.uid);
 
-    const loading = modulesLoading || userLoading;
+    // Extract current lessonId from pathname for active state
+    const activeLessonId = pathname?.startsWith("/watch/")
+        ? pathname.split("/")[2]
+        : undefined;
 
     // Close mobile menu on route change
     useEffect(() => {
@@ -100,6 +102,18 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
                     <span>Dashboard</span>
                 </Link>
 
+                {/* Mijn Curriculum Link - Full Overview Page */}
+                <Link
+                    href="/curriculum"
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-colors ${pathname === "/curriculum" || pathname?.startsWith("/curriculum")
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-muted-foreground hover:bg-gray-50 hover:text-foreground"
+                        }`}
+                >
+                    <GraduationCap className="w-5 h-5" />
+                    <span>Mijn Curriculum</span>
+                </Link>
+
                 {/* Workbook Link */}
                 <Link
                     href="/workbook"
@@ -120,133 +134,9 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
                         : "text-muted-foreground hover:bg-gray-50 hover:text-foreground"
                         }`}
                 >
-                    <Play className="w-5 h-5" />
+                    <Calendar className="w-5 h-5" />
                     <span>Mijn Praktijkdagen</span>
                 </Link>
-
-                {/* Curriculum Section */}
-                {loading ? (
-                    <div className="px-4 py-8 text-center">
-                        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                    </div>
-                ) : modules.length === 0 ? (
-                    <p className="px-4 text-sm text-muted-foreground">
-                        No content available.
-                    </p>
-                ) : (
-                    <div className="space-y-6">
-                        {/* Semester 1 */}
-                        {modules.some(m => m.semester === 1) && (
-                            <div>
-                                <h3 className="px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                                    Semester 1: Audio
-                                </h3>
-                                <div className="space-y-1">
-                                    {modules.filter(m => m.semester === 1).map((module) => {
-                                        const isActive = currentModuleId === module.id;
-                                        // Demo logic: assume first few are playable
-                                        const isCompleted = false; // logic to be added later
-
-                                        return (
-                                            <Link
-                                                key={module.id}
-                                                href={`/module/${module.id}`}
-                                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all group relative overflow-hidden ${isActive
-                                                    ? "bg-secondary/10 text-secondary font-medium"
-                                                    : "text-muted-foreground hover:bg-gray-50 hover:text-foreground"
-                                                    }`}
-                                            >
-                                                {/* Active Indicator Bar */}
-                                                {isActive && (
-                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-secondary" />
-                                                )}
-
-                                                <div
-                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors shrink-0 ${isActive
-                                                        ? "bg-secondary text-white"
-                                                        : isCompleted
-                                                            ? "bg-green-100 text-green-600"
-                                                            : "bg-gray-100 text-gray-500 group-hover:bg-primary/10 group-hover:text-primary"
-                                                        }`}
-                                                >
-                                                    {isCompleted ? (
-                                                        <Check className="w-4 h-4 stroke-[3]" />
-                                                    ) : (
-                                                        module.order
-                                                    )}
-                                                </div>
-                                                <div className="flex-1 min-w-0 z-10">
-                                                    <p className="text-sm font-medium truncate">
-                                                        Module {module.order}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground truncate">
-                                                        {module.title.split(": ")[1] || module.title}
-                                                    </p>
-                                                </div>
-                                                <ChevronRight
-                                                    className={`w-4 h-4 transition-transform shrink-0 ${isActive ? "text-secondary" : "text-gray-300 group-hover:text-gray-500"
-                                                        }`}
-                                                />
-                                            </Link>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Semester 2 */}
-                        {modules.some(m => m.semester === 2) && (
-                            <div>
-                                <h3 className="px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                                    Semester 2: Light
-                                </h3>
-                                <div className="space-y-1">
-                                    {modules.filter(m => m.semester === 2).map((module) => {
-                                        const isActive = currentModuleId === module.id;
-                                        const isCompleted = false;
-
-                                        return (
-                                            <Link
-                                                key={module.id}
-                                                href={`/module/${module.id}`}
-                                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all group relative overflow-hidden ${isActive
-                                                    ? "bg-secondary/10 text-secondary font-medium"
-                                                    : "text-muted-foreground hover:bg-gray-50 hover:text-foreground"
-                                                    }`}
-                                            >
-                                                {isActive && (
-                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-secondary" />
-                                                )}
-                                                <div
-                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors shrink-0 ${isActive
-                                                        ? "bg-secondary text-white"
-                                                        : isCompleted
-                                                            ? "bg-green-100 text-green-600"
-                                                            : "bg-gray-100 text-gray-500 group-hover:bg-primary/10 group-hover:text-primary"
-                                                        }`}
-                                                >
-                                                    {module.order}
-                                                </div>
-                                                <div className="flex-1 min-w-0 z-10">
-                                                    <p className="text-sm font-medium truncate">
-                                                        Module {module.order}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground truncate">
-                                                        {module.title.split(": ")[1] || module.title}
-                                                    </p>
-                                                </div>
-                                                <ChevronRight
-                                                    className={`w-4 h-4 transition-transform shrink-0 ${isActive ? "text-secondary" : "text-gray-300 group-hover:text-gray-500"
-                                                        }`}
-                                                />
-                                            </Link>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
             </nav>
 
             {/* User Section */}

@@ -18,26 +18,56 @@ import { db } from "./firebase";
 // TYPES
 // =============================================================================
 
-export interface Module {
+export interface Semester {
     id: string;
     title: string;
+    order: number; // 1 or 2
+    description?: string;
+}
+
+export interface Block {
+    id: string;
+    semesterId: string;
+    title: string;
     description: string;
-    order: number;
-    semester: number; // 1 or 2
+    order: number; // 1-4
+}
+
+export interface Module {
+    id: string;
+    blockId: string; // Parent block
+    semesterId: string; // For easy querying
+    title: string;
+    description: string;
+    order: number; // Global order 1-10
     status: "published" | "draft";
     createdAt: Date;
 }
 
+export interface Week {
+    id: string;
+    moduleId: string; // Parent module
+    blockId: string; // For easy querying
+    semesterId: string; // For easy querying
+    title: string;
+    weekNumber: number; // 1-40 global
+    order: number; // 1-N within module
+}
+
 export interface Lesson {
     id: string;
-    moduleId: string;
+    weekId: string; // Parent week
+    moduleId: string; // Keep for backward compatibility
+    blockId: string; // For easy querying
+    semesterId: string; // For easy querying
     title: string;
-    number: string; // e.g. "1.1", "3.2"
+    number: string; // e.g. "B1 L1.1", "B2 L4.3"
+    description: string; // Detailed description
     vimeoId: string;
     handoutPdfUrl?: string; // URL to viewable PDF cheatsheet
     handoutMarkdown?: string; // Legacy support
     resources: { name: string; url: string }[];
-    order: number;
+    order: number; // Within week
     duration: string;
 }
 
@@ -62,6 +92,105 @@ export interface UserData {
     role: "student" | "admin";
     progress: Record<string, boolean>;
     bookedSlots?: string[]; // IDs of booked LiveSlots
+}
+
+// =============================================================================
+// SEMESTERS
+// =============================================================================
+
+export async function getSemesters(): Promise<Semester[]> {
+    const q = query(collection(db, "semesters"), orderBy("order", "asc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+    })) as Semester[];
+}
+
+export async function getSemester(id: string): Promise<Semester | null> {
+    const docRef = doc(db, "semesters", id);
+    const snapshot = await getDoc(docRef);
+    if (!snapshot.exists()) return null;
+    return {
+        id: snapshot.id,
+        ...snapshot.data(),
+    } as Semester;
+}
+
+// =============================================================================
+// BLOCKS
+// =============================================================================
+
+export async function getBlocks(): Promise<Block[]> {
+    const q = query(collection(db, "blocks"), orderBy("order", "asc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+    })) as Block[];
+}
+
+export async function getBlocksForSemester(semesterId: string): Promise<Block[]> {
+    const q = query(
+        collection(db, "blocks"),
+        where("semesterId", "==", semesterId)
+    );
+    const snapshot = await getDocs(q);
+    const blocks = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+    })) as Block[];
+
+    // Sort in memory to avoid index requirements
+    return blocks.sort((a, b) => a.order - b.order);
+}
+
+export async function getBlock(id: string): Promise<Block | null> {
+    const docRef = doc(db, "blocks", id);
+    const snapshot = await getDoc(docRef);
+    if (!snapshot.exists()) return null;
+    return {
+        id: snapshot.id,
+        ...snapshot.data(),
+    } as Block;
+}
+
+// =============================================================================
+// WEEKS
+// =============================================================================
+
+export async function getWeeks(): Promise<Week[]> {
+    const q = query(collection(db, "weeks"), orderBy("weekNumber", "asc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+    })) as Week[];
+}
+
+export async function getWeeksForModule(moduleId: string): Promise<Week[]> {
+    const q = query(
+        collection(db, "weeks"),
+        where("moduleId", "==", moduleId)
+    );
+    const snapshot = await getDocs(q);
+    const weeks = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+    })) as Week[];
+
+    // Sort in memory to avoid index requirements
+    return weeks.sort((a, b) => a.order - b.order);
+}
+
+export async function getWeek(id: string): Promise<Week | null> {
+    const docRef = doc(db, "weeks", id);
+    const snapshot = await getDoc(docRef);
+    if (!snapshot.exists()) return null;
+    return {
+        id: snapshot.id,
+        ...snapshot.data(),
+    } as Week;
 }
 
 // =============================================================================
@@ -181,6 +310,21 @@ export async function getLessonsForModule(moduleId: string): Promise<Lesson[]> {
     return lessons.sort((a, b) => a.order - b.order);
 }
 
+export async function getLessonsForWeek(weekId: string): Promise<Lesson[]> {
+    const q = query(
+        collection(db, "lessons"),
+        where("weekId", "==", weekId)
+    );
+    const snapshot = await getDocs(q);
+    const lessons = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+    })) as Lesson[];
+
+    // Sort in memory to avoid index requirements
+    return lessons.sort((a, b) => a.order - b.order);
+}
+
 export async function getLesson(id: string): Promise<Lesson | null> {
     const docRef = doc(db, "lessons", id);
     const snapshot = await getDoc(docRef);
@@ -235,9 +379,12 @@ export async function markLessonComplete(
     lessonId: string
 ): Promise<void> {
     const docRef = doc(db, "users", uid);
-    await updateDoc(docRef, {
-        [`progress.${lessonId}`]: true,
-    });
+    // Use setDoc with merge to create the document if it doesn't exist
+    await setDoc(docRef, {
+        progress: {
+            [lessonId]: true
+        }
+    }, { merge: true });
 }
 
 export async function isLessonComplete(
