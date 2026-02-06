@@ -1,34 +1,26 @@
-import { useEffect, useState } from "react";
+"use client";
+
+import useSWR from "swr";
 import { getSemesters, Semester } from "@/lib/firestore";
 
+const fetcher = async (): Promise<Semester[]> => {
+    return await getSemesters();
+};
+
 export function useSemesters() {
-    const [semesters, setSemesters] = useState<Semester[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-
-    useEffect(() => {
-        let mounted = true;
-
-        async function fetch() {
-            try {
-                const data = await getSemesters();
-                if (mounted) {
-                    setSemesters(data);
-                    setLoading(false);
-                }
-            } catch (err) {
-                if (mounted) {
-                    setError(err as Error);
-                    setLoading(false);
-                }
-            }
+    const { data, error, isLoading, mutate } = useSWR<Semester[]>(
+        "semesters",
+        fetcher,
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: false
         }
+    );
 
-        fetch();
-        return () => {
-            mounted = false;
-        };
-    }, []);
-
-    return { semesters, loading, error };
+    return {
+        semesters: data || [],
+        loading: isLoading,
+        error,
+        mutate
+    };
 }

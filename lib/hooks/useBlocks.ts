@@ -1,34 +1,26 @@
-import { useEffect, useState } from "react";
+"use client";
+
+import useSWR from "swr";
 import { getBlocks, Block } from "@/lib/firestore";
 
+const fetcher = async (): Promise<Block[]> => {
+    return await getBlocks();
+};
+
 export function useBlocks() {
-    const [blocks, setBlocks] = useState<Block[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-
-    useEffect(() => {
-        let mounted = true;
-
-        async function fetch() {
-            try {
-                const data = await getBlocks();
-                if (mounted) {
-                    setBlocks(data);
-                    setLoading(false);
-                }
-            } catch (err) {
-                if (mounted) {
-                    setError(err as Error);
-                    setLoading(false);
-                }
-            }
+    const { data, error, isLoading, mutate } = useSWR<Block[]>(
+        "blocks",
+        fetcher,
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: false
         }
+    );
 
-        fetch();
-        return () => {
-            mounted = false;
-        };
-    }, []);
-
-    return { blocks, loading, error };
+    return {
+        blocks: data || [],
+        loading: isLoading,
+        error,
+        mutate
+    };
 }
