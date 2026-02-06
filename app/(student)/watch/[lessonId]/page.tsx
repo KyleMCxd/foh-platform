@@ -16,6 +16,8 @@ import {
     Submission,
     createSubmission
 } from "@/lib/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { uploadHomework } from "@/lib/storage";
 import confetti from "canvas-confetti";
 import {
@@ -30,11 +32,13 @@ import {
     List,
     Check,
     Loader2,
-    File
+    File,
+    BookOpen,
+    Save
 } from "lucide-react";
 
 // Types
-type Tab = "INFO" | "HANDOUT" | "HOMEWORK";
+type Tab = "INFO" | "HANDOUT" | "HOMEWORK" | "NOTES";
 
 declare global {
     interface Window {
@@ -57,6 +61,12 @@ export default function WatchPage() {
     const [videoWatched, setVideoWatched] = useState(false);
     const [videoProgress, setVideoProgress] = useState(0);
     const [marking, setMarking] = useState(false);
+
+    // Notes State
+    const [notes, setNotes] = useState("");
+    const [notesLoading, setNotesLoading] = useState(true);
+    const [notesSaving, setNotesSaving] = useState(false);
+    const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
     // Submissions State
     const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -90,6 +100,28 @@ export default function WatchPage() {
         }
         fetchLesson();
     }, [lessonId, progress]); // Re-run if progress updates
+
+    // Fetch Notes (Global Workbook)
+    useEffect(() => {
+        async function fetchNotes() {
+            if (!user) return;
+            try {
+                const docRef = doc(db, "users", user.uid, "data", "workbook");
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    setNotes(docSnap.data().notes || "");
+                    setLastSaved(docSnap.data().updatedAt?.toDate() || null);
+                }
+            } catch (error) {
+                console.error("Error fetching workbook:", error);
+            } finally {
+                setNotesLoading(false);
+            }
+        }
+        if (activeTab === "NOTES") {
+            fetchNotes();
+        }
+    }, [activeTab, user]);
 
     // Fetch Submissions (Only if tab is Homework)
     useEffect(() => {
@@ -143,6 +175,22 @@ export default function WatchPage() {
             console.error(e);
         } finally {
             setMarking(false);
+        }
+    };
+
+    const handleSaveNotes = async () => {
+        if (!user) return;
+        setNotesSaving(true);
+        try {
+            await setDoc(doc(db, "users", user.uid, "data", "workbook"), {
+                notes,
+                updatedAt: new Date(),
+            }, { merge: true });
+            setLastSaved(new Date());
+        } catch (error) {
+            console.error("Error saving workbook:", error);
+        } finally {
+            setNotesSaving(false);
         }
     };
 
@@ -269,13 +317,14 @@ export default function WatchPage() {
                         { id: "INFO", label: "Overview", icon: FileText },
                         { id: "HANDOUT", label: "Handout", icon: Download },
                         { id: "HOMEWORK", label: "Huiswerk", icon: Upload },
+                        { id: "NOTES", label: "Notities", icon: BookOpen },
                     ].map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as Tab)}
                             className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-                                ? "border-primary text-primary bg-zinc-800/50"
-                                : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-800"
+                                    ? "border-primary text-primary bg-zinc-800/50"
+                                    : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-800"
                                 }`}
                         >
                             <tab.icon className="w-4 h-4" />
@@ -305,8 +354,8 @@ export default function WatchPage() {
                                     onClick={handleMarkComplete}
                                     disabled={marking || completed || !videoWatched}
                                     className={`flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-lg transition-all transform active:scale-95 ${completed ? "bg-green-500/10 text-green-500 border border-green-500/20"
-                                        : !videoWatched ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                                            : "bg-brand-gradient text-white shadow-lg shadow-primary/20 hover:opacity-90"
+                                            : !videoWatched ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                                                : "bg-brand-gradient text-white shadow-lg shadow-primary/20 hover:opacity-90"
                                         }`}
                                 >
                                     {completed ? <Check className="w-6 h-6" /> : !videoWatched ? <Lock className="w-5 h-5" /> : <CheckCircle className="w-6 h-6" />}
@@ -397,8 +446,8 @@ export default function WatchPage() {
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${sub.grade === "pass" ? "bg-green-500/10 text-green-500" :
-                                                    sub.grade === "fail" ? "bg-red-500/10 text-red-500" :
-                                                        "bg-orange-500/10 text-orange-500"
+                                                        sub.grade === "fail" ? "bg-red-500/10 text-red-500" :
+                                                            "bg-orange-500/10 text-orange-500"
                                                     }`}>
                                                     {sub.grade === "pass" ? "Passed" : sub.grade === "fail" ? "Failed" : "Pending"}
                                                 </span>
@@ -408,6 +457,41 @@ export default function WatchPage() {
                                     ))
                                 )}
                             </div>
+                        </div>
+                    )}
+
+                    {/* NOTES TAB */}
+                    {activeTab === "NOTES" && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col items-start gap-4 h-[600px]">
+                            <div className="w-full flex items-center justify-between">
+                                <Link
+                                    href="/workbook"
+                                    target="_blank"
+                                    className="text-xl font-bold text-white hover:text-primary transition-colors flex items-center gap-2"
+                                >
+                                    My Notebook <BookOpen className="w-4 h-4" />
+                                </Link>
+                                <button
+                                    onClick={handleSaveNotes}
+                                    disabled={notesSaving}
+                                    className="flex items-center gap-2 px-4 py-2 bg-zinc-800 text-white rounded-lg hover:bg-primary hover:text-black font-medium transition-colors disabled:opacity-50"
+                                >
+                                    {notesSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    {notesSaving ? "Savings..." : "Save Notes"}
+                                </button>
+                            </div>
+
+                            <p className="text-xs text-zinc-500">
+                                This is your global notebook. Notes taken here appear in "Mijn Werkboek".
+                                {lastSaved && ` Last saved: ${lastSaved.toLocaleTimeString()}`}
+                            </p>
+
+                            <textarea
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                className="flex-1 w-full p-6 resize-none bg-zinc-900 border border-zinc-800 rounded-2xl focus:outline-none focus:border-primary text-zinc-200 leading-relaxed placeholder:text-zinc-700 custom-scrollbar font-sans"
+                                placeholder="Type your notes here..."
+                            />
                         </div>
                     )}
 
