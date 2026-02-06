@@ -106,26 +106,26 @@ export default function DashboardPage() {
               </h2>
               <Link
                 href={`/watch/${nextLesson.id}`}
-                className="block md:w-fit min-w-[400px] bg-white rounded-2xl border border-border p-6 hover:shadow-lg hover:border-primary/20 transition-all group"
+                className="block w-full md:w-fit md:min-w-[400px] bg-white rounded-2xl border border-border p-4 md:p-6 hover:shadow-lg hover:border-primary/20 transition-all group"
               >
-                <div className="flex items-center justify-between gap-8">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-xl bg-brand-gradient flex items-center justify-center text-white">
-                      <Play className="w-6 h-6 fill-current" />
+                <div className="flex items-center justify-between gap-4 md:gap-8">
+                  <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-brand-gradient flex items-center justify-center text-white shrink-0">
+                      <Play className="w-5 h-5 md:w-6 md:h-6 fill-current" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
                         {nextLesson.number}
                       </p>
-                      <h3 className="font-bold text-lg">
+                      <h3 className="font-bold text-base md:text-lg truncate pr-2">
                         {nextLesson.title}
                       </h3>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-muted-foreground mt-0.5">
                         {nextLesson.duration}
                       </p>
                     </div>
                   </div>
-                  <div className="text-primary font-medium group-hover:translate-x-1 transition-transform whitespace-nowrap">
+                  <div className="text-primary font-medium group-hover:translate-x-1 transition-transform whitespace-nowrap text-sm md:text-base">
                     Start →
                   </div>
                 </div>
