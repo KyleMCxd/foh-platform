@@ -251,10 +251,10 @@ export default function WatchPage() {
     if (!lesson) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
     return (
-        <div className="min-h-screen bg-black text-white flex flex-col lg:flex-row overflow-hidden">
+        <div className="min-h-screen bg-black text-white flex flex-col-reverse lg:flex-row overflow-hidden">
 
             {/* LEFT SIDEBAR - PLAYLIST */}
-            <aside className="w-full lg:w-80 bg-zinc-900 border-r border-zinc-800 flex flex-col h-[40vh] lg:h-screen overflow-hidden shrink-0">
+            <aside className="w-full lg:w-80 bg-zinc-900 border-r border-zinc-800 flex flex-col h-auto min-h-[300px] lg:h-screen overflow-hidden shrink-0">
                 <div className="p-4 border-b border-zinc-800">
                     <Link href="/curriculum" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-4 text-sm">
                         <ChevronLeft className="w-4 h-4" /> Back to Curriculum
@@ -262,7 +262,7 @@ export default function WatchPage() {
                     <h2 className="font-bold text-lg text-white mb-1 line-clamp-1">{module?.title}</h2>
                     <p className="text-xs text-zinc-500">{moduleLessons.length} lessons</p>
                 </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 overflow-y-auto custom-scrollbar h-[300px] lg:h-auto">
                     {moduleLessons.map((l) => {
                         const isCurrent = l.id === lesson.id;
                         const isDone = progress[l.id];
@@ -312,7 +312,7 @@ export default function WatchPage() {
                 </div>
 
                 {/* TABS NAVIGATION */}
-                <div className="flex items-center border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
+                <div className="flex items-center border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10 overflow-x-auto no-scrollbar">
                     {[
                         { id: "INFO", label: "Overview", icon: FileText },
                         { id: "HANDOUT", label: "Handout", icon: Download },
@@ -323,8 +323,8 @@ export default function WatchPage() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as Tab)}
                             className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-                                    ? "border-primary text-primary bg-zinc-800/50"
-                                    : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-800"
+                                ? "border-primary text-primary bg-zinc-800/50"
+                                : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-800"
                                 }`}
                         >
                             <tab.icon className="w-4 h-4" />
@@ -334,7 +334,7 @@ export default function WatchPage() {
                 </div>
 
                 {/* TAB CONTENT */}
-                <div className="flex-1 p-6 lg:p-10 max-w-4xl">
+                <div className="flex-1 p-6 lg:p-10 max-w-4xl mx-auto w-full">
 
                     {/* INFO TAB */}
                     {activeTab === "INFO" && (
@@ -354,8 +354,8 @@ export default function WatchPage() {
                                     onClick={handleMarkComplete}
                                     disabled={marking || completed || !videoWatched}
                                     className={`flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-lg transition-all transform active:scale-95 ${completed ? "bg-green-500/10 text-green-500 border border-green-500/20"
-                                            : !videoWatched ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                                                : "bg-brand-gradient text-white shadow-lg shadow-primary/20 hover:opacity-90"
+                                        : !videoWatched ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                                            : "bg-brand-gradient text-white shadow-lg shadow-primary/20 hover:opacity-90"
                                         }`}
                                 >
                                     {completed ? <Check className="w-6 h-6" /> : !videoWatched ? <Lock className="w-5 h-5" /> : <CheckCircle className="w-6 h-6" />}
@@ -446,8 +446,8 @@ export default function WatchPage() {
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${sub.grade === "pass" ? "bg-green-500/10 text-green-500" :
-                                                        sub.grade === "fail" ? "bg-red-500/10 text-red-500" :
-                                                            "bg-orange-500/10 text-orange-500"
+                                                    sub.grade === "fail" ? "bg-red-500/10 text-red-500" :
+                                                        "bg-orange-500/10 text-orange-500"
                                                     }`}>
                                                     {sub.grade === "pass" ? "Passed" : sub.grade === "fail" ? "Failed" : "Pending"}
                                                 </span>
