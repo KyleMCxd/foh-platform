@@ -20,13 +20,12 @@ export default function SidebarContent() {
     return (
         <div className="flex flex-col h-full bg-white text-zinc-900">
             {/* Logo */}
-            <div className="p-6 border-b border-gray-200">
-                <Link href="/dashboard" className="block w-fit">
-                    <Logo className="text-zinc-900" />
-                    {/* Note: The logo text is white by default, we might need to handle dark/light modes. 
-                       But the requested logo had white text. The sidebar is white background. 
-                       We need the text to be visible. The requested logo has black outline/shadow, so it should pop on white too.
-                       Let's trust the component's drop-shadows. */}
+            <div className="p-6 border-b border-[#00F0FF]/20 bg-[#050A30] relative overflow-hidden">
+                {/* Neon Glow Effect */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#00F0FF] to-transparent opacity-50"></div>
+
+                <Link href="/dashboard" className="block w-fit relative z-10">
+                    <Logo className="text-white" />
                 </Link>
             </div>
 
