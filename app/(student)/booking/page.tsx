@@ -104,7 +104,7 @@ export default function BookingPage() {
 
         } catch (err: any) {
             console.error("Booking failed:", err);
-            setError(err.message || "Failed to book slot.");
+            setError(err.message || "Kon slot niet boeken.");
         } finally {
             setBookingId(null);
         }

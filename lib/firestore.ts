@@ -406,6 +406,18 @@ export async function deleteLesson(id: string): Promise<void> {
 // =============================================================================
 
 export async function getUserData(uid: string): Promise<UserData | null> {
+    // MOCK USER: Read from localStorage
+    if (uid === "mock_student_1" && typeof window !== "undefined") {
+        const stored = localStorage.getItem("foh_mock_user");
+        if (stored) return JSON.parse(stored);
+        // Default init
+        return {
+            email: "student@fohacademy.nl",
+            role: "student",
+            progress: {},
+        };
+    }
+
     const docRef = doc(db, "users", uid);
     const snapshot = await getDoc(docRef);
     if (!snapshot.exists()) return null;
@@ -424,6 +436,22 @@ export async function markLessonComplete(
     uid: string,
     lessonId: string
 ): Promise<void> {
+    // MOCK USER: Write to localStorage
+    if (uid === "mock_student_1" && typeof window !== "undefined") {
+        const currentUser = await getUserData(uid) || { email: "student@fohacademy.nl", role: "student", progress: {} };
+        const updated = {
+            ...currentUser,
+            progress: {
+                ...currentUser.progress,
+                [lessonId]: true
+            }
+        };
+        localStorage.setItem("foh_mock_user", JSON.stringify(updated));
+        // Force a small delay to simulate network
+        await new Promise(r => setTimeout(r, 100));
+        return;
+    }
+
     const docRef = doc(db, "users", uid);
     // Use setDoc with merge to create the document if it doesn't exist
     await setDoc(docRef, {

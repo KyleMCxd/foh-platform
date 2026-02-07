@@ -7,25 +7,48 @@ export default function Logo({ className = "", showText = true }: { className?: 
             {/* For now, we simulate the look with CSS/Icon to match the requested design */}
 
             <div className="relative group">
-                {/* Icon Container with Blue Gradient Border/Glow */}
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-b from-[#00F0FF] to-[#0080FF] p-[2px] shadow-[0_0_15px_rgba(0,240,255,0.3)]">
-                    <div className="w-full h-full bg-black rounded-[10px] flex items-center justify-center relative overflow-hidden">
-                        {/* Sliders Graphic Simulation */}
-                        <div className="flex gap-1.5 items-center justify-center h-full">
-                            {/* Slider 1 */}
-                            <div className="h-4/6 w-1 bg-[#00F0FF] rounded-full relative">
-                                <div className="absolute top-[60%] left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#00F0FF] shadow-[0_0_5px_#00F0FF]"></div>
-                            </div>
-                            {/* Slider 2 (Arrow) */}
-                            <div className="h-[90%] w-1 bg-gradient-to-t from-[#00F0FF]/20 to-[#00F0FF] rounded-full relative">
-                                <div className="absolute top-0 left-1/2 -translate-x-1/2 border-l-[4px] border-r-[4px] border-b-[6px] border-l-transparent border-r-transparent border-b-[#00F0FF]"></div>
-                            </div>
-                            {/* Slider 3 */}
-                            <div className="h-4/6 w-1 bg-[#00F0FF] rounded-full relative">
-                                <div className="absolute top-[40%] left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#00F0FF] shadow-[0_0_5px_#00F0FF]"></div>
-                            </div>
-                        </div>
-                    </div>
+                {/* Logo Icon - Stylized Faders / Equalizer */}
+                <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center">
+                    <svg
+                        width="48"
+                        height="48"
+                        viewBox="0 0 48 48"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-full h-full drop-shadow-[0_0_10px_rgba(0,240,255,0.4)]"
+                    >
+                        {/* Background Container - Dark Glass */}
+                        <rect x="2" y="2" width="44" height="44" rx="12" fill="#0A0A0A" stroke="url(#logo_gradient)" strokeWidth="2" />
+
+                        {/* Fader Tracks */}
+                        <path d="M14 12V36" stroke="#333" strokeWidth="2" strokeLinecap="round" />
+                        <path d="M24 12V36" stroke="#333" strokeWidth="2" strokeLinecap="round" />
+                        <path d="M34 12V36" stroke="#333" strokeWidth="2" strokeLinecap="round" />
+
+                        {/* Fader Caps (Glow) */}
+                        {/* Fader 1 - Low/Mid */}
+                        <rect x="11" y="26" width="6" height="4" rx="1" fill="#BC13FE" className="animate-pulse-slow">
+                            <animate attributeName="y" values="26;24;26" dur="3s" repeatCount="indefinite" />
+                        </rect>
+
+                        {/* Fader 2 - High (Main) */}
+                        <rect x="21" y="14" width="6" height="4" rx="1" fill="#00F0FF" className="drop-shadow-[0_0_8px_rgba(0,240,255,0.8)]">
+                            <animate attributeName="y" values="14;12;14" dur="4s" repeatCount="indefinite" />
+                        </rect>
+
+                        {/* Fader 3 - Mid/High */}
+                        <rect x="31" y="20" width="6" height="4" rx="1" fill="#BC13FE" className="animate-pulse-slow">
+                            <animate attributeName="y" values="20;18;20" dur="5s" repeatCount="indefinite" />
+                        </rect>
+
+                        {/* Definitions for Gradients */}
+                        <defs>
+                            <linearGradient id="logo_gradient" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
+                                <stop offset="0%" stopColor="#00F0FF" />
+                                <stop offset="100%" stopColor="#BC13FE" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
                 </div>
             </div>
 

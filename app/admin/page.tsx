@@ -123,7 +123,7 @@ export default function AdminPage() {
     };
 
     const handleDelete = async (id: string, type: AdminTab) => {
-        if (!confirm("Are you sure you want to delete this item? This cannot be undone.")) return;
+        if (!confirm("Weet je zeker dat je dit item wilt verwijderen? Dit kan niet ongedaan worden gemaakt.")) return;
 
         try {
             switch (type) {
@@ -141,7 +141,7 @@ export default function AdminPage() {
             }
         } catch (error) {
             console.error("Delete failed:", error);
-            alert("Failed to delete item");
+            alert("Kon item niet verwijderen");
         }
     };
 
@@ -187,7 +187,7 @@ export default function AdminPage() {
             resetForm();
         } catch (error) {
             console.error("Save failed:", error);
-            alert("Failed to save item: " + error);
+            alert("Kon item niet opslaan: " + error);
         }
     };
 
@@ -206,14 +206,14 @@ export default function AdminPage() {
                         {columns.map((col) => (
                             <th key={col.key} className="px-6 py-3">{col.label}</th>
                         ))}
-                        <th className="px-6 py-3 text-right">Actions</th>
+                        <th className="px-6 py-3 text-right">Acties</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                     {items.length === 0 ? (
                         <tr>
                             <td colSpan={columns.length + 1} className="px-6 py-8 text-center text-muted-foreground">
-                                No items found.
+                                Geen items gevonden.
                             </td>
                         </tr>
                     ) : (
@@ -266,13 +266,13 @@ export default function AdminPage() {
                             A
                         </div>
                         <div>
-                            <h1 className="font-bold text-lg">FOH Academy Admin</h1>
-                            <p className="text-xs text-muted-foreground">Content Management System</p>
+                            <h1 className="font-bold text-lg">FOH Academy Beheer</h1>
+                            <p className="text-xs text-muted-foreground">Content Management Systeem</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
                         <a href="/dashboard" className="text-sm text-muted-foreground hover:text-primary">
-                            Student Portal →
+                            Studenten Portaal →
                         </a>
                     </div>
                 </div>
@@ -282,10 +282,10 @@ export default function AdminPage() {
                     <div className="flex space-x-1 items-center">
                         {[
                             { id: "semesters", label: "Semesters", icon: GraduationCap },
-                            { id: "blocks", label: "Blocks", icon: Grid },
+                            { id: "blocks", label: "Blokken", icon: Grid },
                             { id: "modules", label: "Modules", icon: BookOpen },
-                            { id: "weeks", label: "Weeks", icon: Calendar },
-                            { id: "lessons", label: "Lessons", icon: Video },
+                            { id: "weeks", label: "Weken", icon: Calendar },
+                            { id: "lessons", label: "Lessen", icon: Video },
                         ].map((tab) => (
                             <button
                                 key={tab.id}
@@ -307,7 +307,7 @@ export default function AdminPage() {
                             className="flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-primary hover:border-primary/50 transition-all whitespace-nowrap"
                         >
                             <FileText className="w-4 h-4" />
-                            Homework
+                            Huiswerk
                         </a>
                     </div>
                 </div>
@@ -316,12 +316,12 @@ export default function AdminPage() {
             <main className="max-w-7xl mx-auto px-6 py-8">
                 {/* Actions Bar */}
                 <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl font-bold capitalize">{activeTab} Management</h2>
+                    <h2 className="text-2xl font-bold capitalize">{activeTab} Beheer</h2>
                     <button
                         onClick={() => { resetForm(); setShowForm(true); }}
                         className="flex items-center gap-2 bg-brand-gradient text-white px-5 py-2.5 rounded-lg font-medium shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all"
                     >
-                        <Plus className="w-4 h-4" /> Add {activeTab.slice(0, -1)}
+                        <Plus className="w-4 h-4" /> Nieuw {activeTab.slice(0, -1)}
                     </button>
                 </div>
 
@@ -331,8 +331,8 @@ export default function AdminPage() {
                         items={semesters}
                         columns={[
                             { key: "order", label: "#" },
-                            { key: "title", label: "Title" },
-                            { key: "description", label: "Description" },
+                            { key: "title", label: "Titel" },
+                            { key: "description", label: "Beschrijving" },
                         ]}
                     />
                 )}
@@ -342,9 +342,9 @@ export default function AdminPage() {
                         items={blocks}
                         columns={[
                             { key: "order", label: "#" },
-                            { key: "title", label: "Title" },
+                            { key: "title", label: "Titel" },
                             { key: "semesterId", label: "Semester", render: (b) => semesters.find(s => s.id === b.semesterId)?.title || b.semesterId },
-                            { key: "description", label: "Description" },
+                            { key: "description", label: "Beschrijving" },
                         ]}
                     />
                 )}
@@ -354,9 +354,9 @@ export default function AdminPage() {
                         items={modules}
                         columns={[
                             { key: "order", label: "#" },
-                            { key: "title", label: "Title" },
-                            { key: "blockId", label: "Block", render: (m) => blocks.find(b => b.id === m.blockId)?.title || m.blockId },
-                            { key: "status", label: "Status", render: (m) => <span className={`px-2 py-0.5 rounded text-xs font-bold ${m.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{m.status}</span> },
+                            { key: "title", label: "Titel" },
+                            { key: "blockId", label: "Blok", render: (m) => blocks.find(b => b.id === m.blockId)?.title || m.blockId },
+                            { key: "status", label: "Status", render: (m) => <span className={`px-2 py-0.5 rounded text-xs font-bold ${m.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{m.status === 'published' ? 'Gepubliceerd' : 'Concept'}</span> },
                         ]}
                     />
                 )}
@@ -366,7 +366,7 @@ export default function AdminPage() {
                         items={weeks}
                         columns={[
                             { key: "weekNumber", label: "Week #" },
-                            { key: "title", label: "Title" },
+                            { key: "title", label: "Titel" },
                             { key: "moduleId", label: "Module", render: (w) => modules.find(m => m.id === w.moduleId)?.title || w.moduleId },
                         ]}
                     />
@@ -376,13 +376,13 @@ export default function AdminPage() {
                     <div className="space-y-6">
                         {/* Module Selector for Lessons */}
                         <div className="bg-white p-4 rounded-xl border border-border flex items-center gap-4">
-                            <label className="font-medium text-sm text-gray-700">Select Module:</label>
+                            <label className="font-medium text-sm text-gray-700">Selecteer Module:</label>
                             <select
                                 value={selectedModuleForLessons}
                                 onChange={(e) => setSelectedModuleForLessons(e.target.value)}
                                 className="flex-1 max-w-md px-3 py-2 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
                             >
-                                <option value="">Select a module to view lessons...</option>
+                                <option value="">Selecteer een module om lessen te bekijken...</option>
                                 {modules.map(m => (
                                     <option key={m.id} value={m.id}>{m.title}</option>
                                 ))}
@@ -395,13 +395,13 @@ export default function AdminPage() {
                                 columns={[
                                     { key: "order", label: "#" },
                                     { key: "number", label: "Code" },
-                                    { key: "title", label: "Title" },
-                                    { key: "duration", label: "Duration" },
+                                    { key: "title", label: "Titel" },
+                                    { key: "duration", label: "Duur" },
                                 ]}
                             />
                         ) : (
                             <div className="text-center py-12 text-muted-foreground">
-                                Please select a module to manage its lessons.
+                                Selecteer een module om de lessen te beheren.
                             </div>
                         )}
                     </div>
@@ -414,7 +414,7 @@ export default function AdminPage() {
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-bold capitalize">
-                                {editingItem ? "Edit" : "Add New"} {activeTab.slice(0, -1)}
+                                {editingItem ? "Bewerk" : "Nieuwe"} {activeTab.slice(0, -1)}
                             </h3>
                             <button onClick={resetForm} className="text-gray-400 hover:text-gray-600">
                                 <X className="w-5 h-5" />
@@ -427,7 +427,7 @@ export default function AdminPage() {
                             {/* Common Fields */}
                             {(activeTab !== "weeks") && (
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Order</label>
+                                    <label className="block text-sm font-medium mb-1">Volgorde</label>
                                     <input
                                         type="number"
                                         value={formData.order || ""}
@@ -439,25 +439,25 @@ export default function AdminPage() {
                             )}
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">Title</label>
+                                <label className="block text-sm font-medium mb-1">Titel</label>
                                 <input
                                     type="text"
                                     value={formData.title || ""}
                                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                     className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
-                                    placeholder="Title"
+                                    placeholder="Titel"
                                 />
                             </div>
 
                             {/* Description (Semesters, Blocks, Modules, Lessons) */}
                             {["semesters", "blocks", "modules", "lessons"].includes(activeTab) && (
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Description</label>
+                                    <label className="block text-sm font-medium mb-1">Beschrijving</label>
                                     <textarea
                                         value={formData.description || ""}
                                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                         className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
-                                        placeholder="Description..."
+                                        placeholder="Beschrijving..."
                                         rows={3}
                                     />
                                 </div>
@@ -466,13 +466,13 @@ export default function AdminPage() {
                             {/* Blocks Specific */}
                             {activeTab === "blocks" && (
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Parent Semester</label>
+                                    <label className="block text-sm font-medium mb-1">Bovenliggend Semester</label>
                                     <select
                                         value={formData.semesterId || ""}
                                         onChange={(e) => setFormData({ ...formData, semesterId: e.target.value })}
                                         className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
                                     >
-                                        <option value="">Select Semester...</option>
+                                        <option value="">Selecteer Semester...</option>
                                         {semesters.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
                                     </select>
                                 </div>
@@ -482,13 +482,13 @@ export default function AdminPage() {
                             {activeTab === "modules" && (
                                 <>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Parent Block</label>
+                                        <label className="block text-sm font-medium mb-1">Bovenliggend Blok</label>
                                         <select
                                             value={formData.blockId || ""}
                                             onChange={(e) => setFormData({ ...formData, blockId: e.target.value })}
                                             className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
                                         >
-                                            <option value="">Select Block...</option>
+                                            <option value="">Selecteer Blok...</option>
                                             {blocks.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}
                                         </select>
                                     </div>
@@ -499,8 +499,8 @@ export default function AdminPage() {
                                             onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                                             className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
                                         >
-                                            <option value="draft">Draft</option>
-                                            <option value="published">Published</option>
+                                            <option value="draft">Concept</option>
+                                            <option value="published">Gepubliceerd</option>
                                         </select>
                                     </div>
                                 </>
@@ -510,7 +510,7 @@ export default function AdminPage() {
                             {activeTab === "weeks" && (
                                 <>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Week Number (Global)</label>
+                                        <label className="block text-sm font-medium mb-1">Weeknummer (Globaal)</label>
                                         <input
                                             type="number"
                                             value={formData.weekNumber || ""}
@@ -520,13 +520,13 @@ export default function AdminPage() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Parent Module</label>
+                                        <label className="block text-sm font-medium mb-1">Bovenliggende Module</label>
                                         <select
                                             value={formData.moduleId || ""}
                                             onChange={(e) => setFormData({ ...formData, moduleId: e.target.value })}
                                             className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
                                         >
-                                            <option value="">Select Module...</option>
+                                            <option value="">Selecteer Module...</option>
                                             {modules.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
                                         </select>
                                     </div>
@@ -538,7 +538,7 @@ export default function AdminPage() {
                                 <>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium mb-1">Lesson Code</label>
+                                            <label className="block text-sm font-medium mb-1">Les Code</label>
                                             <input
                                                 type="text"
                                                 value={formData.number || ""}
@@ -548,7 +548,7 @@ export default function AdminPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium mb-1">Duration</label>
+                                            <label className="block text-sm font-medium mb-1">Duur</label>
                                             <input
                                                 type="text"
                                                 value={formData.duration || ""}
@@ -569,13 +569,13 @@ export default function AdminPage() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Parent Week</label>
+                                        <label className="block text-sm font-medium mb-1">Bijbehorende Week</label>
                                         <select
                                             value={formData.weekId || ""}
                                             onChange={(e) => setFormData({ ...formData, weekId: e.target.value })}
                                             className="w-full px-4 py-3 rounded-lg border border-border outline-none focus:ring-2 focus:ring-primary/20"
                                         >
-                                            <option value="">Select Week (Optional)...</option>
+                                            <option value="">Selecteer Week (Optioneel)...</option>
                                             {/* Ideally filter weeks by selected module */}
                                             {selectedModuleForLessons && weeks.filter(w => w.moduleId === selectedModuleForLessons).map(w => (
                                                 <option key={w.id} value={w.id}>{w.title}</option>
@@ -592,14 +592,14 @@ export default function AdminPage() {
                                 onClick={resetForm}
                                 className="flex-1 py-3 rounded-lg border border-border font-medium hover:bg-gray-50"
                             >
-                                Cancel
+                                Annuleren
                             </button>
                             <button
                                 onClick={handleSave}
                                 className="flex-1 py-3 rounded-lg bg-brand-gradient text-white font-medium flex items-center justify-center gap-2"
                             >
                                 <Save className="w-4 h-4" />
-                                Save {activeTab.slice(0, -1)}
+                                Opslaan
                             </button>
                         </div>
                     </div>

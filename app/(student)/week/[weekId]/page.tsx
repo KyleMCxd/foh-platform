@@ -46,7 +46,7 @@ export default function WeekPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30 flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center">
                 <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
         );
@@ -64,10 +64,10 @@ export default function WeekPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30">
+        <div className="min-h-screen">
             <div className="max-w-4xl mx-auto px-6 py-8">
                 {/* Breadcrumb */}
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+                <div className="flex items-center gap-2 text-sm text-white/60 mb-6">
                     <Link href="/dashboard" className="hover:text-primary transition-colors">
                         Dashboard
                     </Link>
@@ -78,7 +78,7 @@ export default function WeekPage() {
                     {block && (
                         <>
                             <ChevronRight className="w-4 h-4" />
-                            <span className="text-gray-500">{block.title}</span>
+                            <span className="text-white/40">{block.title}</span>
                         </>
                     )}
                     {module && (
@@ -90,7 +90,7 @@ export default function WeekPage() {
                         </>
                     )}
                     <ChevronRight className="w-4 h-4" />
-                    <span className="text-foreground font-medium">{week.title}</span>
+                    <span className="text-white font-medium">{week.title}</span>
                 </div>
 
                 {/* Header */}
@@ -100,9 +100,9 @@ export default function WeekPage() {
                             <Calendar className="w-7 h-7 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">{week.title}</h1>
+                            <h1 className="text-3xl font-bold text-white">{week.title}</h1>
                             {module && (
-                                <p className="text-muted-foreground">
+                                <p className="text-white/60">
                                     {module.title}
                                 </p>
                             )}
@@ -111,14 +111,14 @@ export default function WeekPage() {
                 </div>
 
                 {/* Progress Bar */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+                <div className="bg-white/10 backdrop-blur-xl rounded-xl border border-white/10 p-6 mb-8">
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium text-gray-700">Week Progress</span>
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-sm font-medium text-white">Week Progress</span>
+                        <span className="text-sm text-white/60">
                             {completedCount}/{totalCount} lessons ({progressPercentage}%)
                         </span>
                     </div>
-                    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden">
                         <div
                             className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500"
                             style={{ width: `${progressPercentage}%` }}
@@ -127,16 +127,16 @@ export default function WeekPage() {
                 </div>
 
                 {/* Lessons List */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
-                    <div className="p-6 border-b border-gray-100">
-                        <h2 className="text-lg font-semibold text-gray-900">
+                <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/10">
+                    <div className="p-6 border-b border-white/10">
+                        <h2 className="text-lg font-semibold text-white">
                             Lessons in this Week
                         </h2>
                     </div>
 
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y divide-white/10">
                         {weekLessons.length === 0 ? (
-                            <div className="p-8 text-center text-muted-foreground">
+                            <div className="p-8 text-center text-white/60">
                                 No lessons in this week yet.
                             </div>
                         ) : (
@@ -146,12 +146,12 @@ export default function WeekPage() {
                                     <Link
                                         key={lesson.id}
                                         href={`/watch/${lesson.id}`}
-                                        className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors group"
+                                        className="flex items-center gap-4 p-4 hover:bg-white/5 transition-colors group"
                                     >
                                         {/* Lesson Number */}
                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${isCompleted
-                                                ? "bg-green-100 text-green-600"
-                                                : "bg-primary/10 text-primary"
+                                            ? "bg-green-100 text-green-600"
+                                            : "bg-primary/10 text-primary"
                                             }`}>
                                             {isCompleted ? (
                                                 <Check className="w-5 h-5" />
@@ -162,11 +162,11 @@ export default function WeekPage() {
 
                                         {/* Lesson Info */}
                                         <div className="flex-1 min-w-0">
-                                            <h3 className={`font-medium group-hover:text-primary transition-colors ${isCompleted ? "text-gray-500" : "text-gray-900"
+                                            <h3 className={`font-medium group-hover:text-primary transition-colors ${isCompleted ? "text-white/50" : "text-white"
                                                 }`}>
                                                 {lesson.title}
                                             </h3>
-                                            <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                                            <div className="flex items-center gap-3 mt-1 text-sm text-white/40">
                                                 {lesson.duration && (
                                                     <span className="flex items-center gap-1">
                                                         <Clock className="w-4 h-4" />
@@ -197,7 +197,7 @@ export default function WeekPage() {
                 <div className="mt-8">
                     <Link
                         href="/curriculum"
-                        className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
+                        className="inline-flex items-center gap-2 text-white/60 hover:text-primary transition-colors"
                     >
                         <ArrowLeft className="w-4 h-4" />
                         Back to Curriculum

@@ -73,10 +73,35 @@
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
+
+  --font-sans: var(--font-saira), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
-  background-color: var(--color-background);
+  background-color: #0f0a1e;
   color: var(--color-foreground);
   font-feature-settings: "rlig" 1, "calt" 1;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+* {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+/* Make all interactive elements show pointer cursor */
+button,
+a,
+[role="button"],
+.cursor-pointer {
+  cursor: pointer;
 }

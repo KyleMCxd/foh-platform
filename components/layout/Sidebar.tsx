@@ -58,7 +58,7 @@ export default function Sidebar() {
                     className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-400 hover:text-white cursor-pointer transition-colors"
                 >
                     <LogOut className="w-4 h-4" />
-                    Sign Out
+                    Uitloggen
                 </button>
             </div>
         </aside>
